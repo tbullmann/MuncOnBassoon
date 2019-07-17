@@ -1,9 +1,9 @@
 // Dialog
 #@ File(label="Select a input directory", style='directory') indir
 #@ File(label="Select a output directory", style='directory') outdir
-#@ String(label="Red channel", choices={"Bassoon", "Munc", "Nothing"}, value="Basson", style="listBox") RedChoice
-#@ String(label="Green channel", choices={"Bassoon", "Munc", "Nothing"}, value="Munc", style="listBox") GreenChoice
-#@ String(label="Blue channel", choices={"Bassoon", "Munc", "Nothing"}, value="Nothing", style="listBox") BlueChoice
+#@ String(label="Red channel", choices={"Bassoon", "Munc", "Marker"}, value="Basson", style="listBox") RedChoice
+#@ String(label="Green channel", choices={"Bassoon", "Munc", "Marker"}, value="Munc", style="listBox") GreenChoice
+#@ String(label="Blue channel", choices={"Bassoon", "Munc", "Marker"}, value="Marker", style="listBox") BlueChoice
 #@ String(label="Basson threshold", value="Auto") minBassoon 
 #@ Integer(label="Minimum area of Bassoon blobs (pixels)", value=30) min_bassoon_area
 #@ Integer(label="Dilate area of Bassoon blobs (times)", value=1) dilate_basson_blob
@@ -45,7 +45,7 @@ function segment(inFile, outFile){
 	setOption("BlackBackground", true);
 	run("Convert to Mask");
 	for (i=0; i<dilate_basson_blob; i++) {run("Dilate");}
-	run("Set Measurements...", "area redirect=None decimal=3");
+	run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
 	run("Analyze Particles...", "size=spot_background_area-Infinity show=[Count Masks] exclude clear include");
 	saveAs("Results", outFile+".bassoon.csv");
@@ -79,7 +79,7 @@ function segment(inFile, outFile){
 	saveAs("Results", outFile + ".munc.csv");
 	
 	// Merge and save segmentation 
-	run("Merge Channels...", "c1=Bassoon c2=Munc create");
+	run("Merge Channels...", "c1=Bassoon c2=Munc c3=Marker create");
 	run("RGB Color");
 	saveAs("Tiff", outFile + ".segmented.tif");
 
