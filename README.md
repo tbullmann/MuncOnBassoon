@@ -13,7 +13,7 @@ This script will process any image found in the specified input folder.
 
 For each input file  this script produces three output files, which will be written to the specified output folder. For example, the results for an image named "image.tif" will be found in:
 
-1. "image.tif.bassoon.csv" contains comma delimitted values for Basson_id, Basson_area, Marker_mean, and Munc_count.
+1. "image.tif.bassoon.csv" contains comma delimitted values for Basson_id, Basson_area, Marker_mean, Munc_count and Munc_density.
 2. "image.tif.munc.csv" contains comma delimitted values for Munc_id, Munc_area, Munc_mean, and Bassoon_id.
 3. "image.tif.segmented.tif" contains the munc spots, bassoon blobs as well as the marker channel.
 
