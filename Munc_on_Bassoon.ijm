@@ -4,18 +4,18 @@
 #@ String(label="Red channel", choices={"Bassoon", "Munc", "Marker"}, value="Basson", style="listBox") RedChoice
 #@ String(label="Green channel", choices={"Bassoon", "Munc", "Marker"}, value="Munc", style="listBox") GreenChoice
 #@ String(label="Blue channel", choices={"Bassoon", "Munc", "Marker"}, value="Marker", style="listBox") BlueChoice
-#@ String(label="Basson threshold", value="Auto") minBassoon 
+#@ String(label="Bassoon threshold", value="Auto") minBassoon
 #@ Integer(label="Minimum area of Bassoon blobs (pixels)", value=30) min_bassoon_area
 #@ Integer(label="Dilate area of Bassoon blobs (times)", value=1) dilate_basson_blob
 #@ String(label="Munc threshold", value="Auto") minMunc 
 #@ Integer(label="Average diameter of Munc spots (pixel)", value=2) spot_size
-#@ String(label="Munc spot in Basson blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") InsideChoice
+#@ String(label="Munc spot in Bassoon blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") InsideChoice
 
-// Parameters 
+// Parameters
 min_spot_area = spot_size*spot_size*3.1415/4
 spot_background_size = spot_size*2
 
-// How to get the Basson blob id from the Count Mask 
+// How to get the Basson blob id from the Count Mask
 if (InsideChoice=="one pixel inside") {Measure="min";}
 if (InsideChoice=="half inside") {Measure="modal";}
 if (InsideChoice=="completely inside") {Measure="min";}
@@ -24,11 +24,11 @@ function segment(inFile, outFile){
 	// Open and rename for processing
 	open(inFile);
 	rename("input");
-	
-	// TODO: Instead of the following reset of the scale to 1/pixel 
+
+	// TODO: Instead of the following reset of the scale to 1/pixel
 	// adjust the parameters measured in pixel according to the scale in the tiff
-	run("Set Scale...", "known=1 unit=pixel"); 
-	
+	run("Set Scale...", "known=1 unit=pixel");
+
 	// Split colors and rename each channel according to Dialog for processing
 	run("Split Channels");
 	selectWindow("input (red)");
@@ -37,7 +37,7 @@ function segment(inFile, outFile){
 	rename(GreenChoice);
 	selectWindow("input (blue)");
 	rename(BlueChoice);
-	
+
 	// Analyse Basoon blobs
 	selectWindow("Bassoon");
 	run("Gaussian Blur...", "sigma=spot_size");
@@ -49,7 +49,7 @@ function segment(inFile, outFile){
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
     run("Analyze Particles...", "size=spot_background_area-Infinity show=[Count Masks] exclude clear include");
     // Save results to Bassoon spot Area and Mean of Marker
-	nR1 = 1 + nResults; 
+	nR1 = 1 + nResults;
 //	Bassoon_label = newArray(nR1);
 	Bassoon_area = newArray(nR1);
 	Marker_mean = newArray(nR1);
@@ -57,11 +57,11 @@ function segment(inFile, outFile){
 	for (i=1; i<nR1;i++) {
 		Bassoon_area[i] = getResult("Area", i-1);
 		Marker_mean[i] = getResult("Mean", i-1);
-	}   
+	}
 
 	// Analyse Munc spots
 	selectWindow("Munc");
-    run("Duplicate...", "title=MuncMask"); 
+    run("Duplicate...", "title=MuncMask");
 	run("Gaussian Blur...", "sigma=spot_size");
 	run("Subtract Background...", "rolling=spot_background_size");
 	if (minMunc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(minMunc), 255);}
@@ -78,7 +78,7 @@ function segment(inFile, outFile){
 		if (InsideChoice=="half inside") {Basson_id[i] = getResult("Mode", i);}
 		if (InsideChoice=="completely inside") {Basson_id[i] = getResult("Min", i);}
 	}
-	
+
     // Count Munc Spots per Bassoon blob
     for (j=0; j<nR2; j++) {          // iterate through all munc spots
     	Munc_count[Basson_id[j]]+=1; // increase count for basson id
@@ -96,7 +96,7 @@ function segment(inFile, outFile){
 	}
 
 	// Save result table with Bassoon Area, Marker Mean, Munc Count per Basson blob
-	run("Clear Results"); 
+	run("Clear Results");
 	for (i=0; i<nR1;i++) {
 //		setResult("Basson_id", i, Bassoon_label[i]);
 		setResult("Basson_id", i, i);
@@ -109,7 +109,7 @@ function segment(inFile, outFile){
 	saveAs("Results", outFile+".bassoon.csv");
 
 	// Save result table with Area and Basson blob id (from the Measure)
-	run("Clear Results"); 
+	run("Clear Results");
 	for (i=0; i<nR2;i++) {
 		setResult("Munc_id", i, i+1);
 		setResult("Munc_area", i, Munc_area[i]);
@@ -119,16 +119,16 @@ function segment(inFile, outFile){
 	updateResults();
 	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile + ".munc.csv");
-	
-	// Merge and save segmentation 
+
+	// Merge and save segmentation
 	run("Merge Channels...", "c1=Bassoon c2=Munc c3=Marker create");
 	run("RGB Color");
 	saveAs("Tiff", outFile + ".segmented.tif");
 
 	// Close all images and the Results manager
-    while (nImages>0) { selectImage(nImages); close(); } 
-	selectWindow("Results"); 
-	run("Close"); 
+    while (nImages>0) { selectImage(nImages); close(); }
+	selectWindow("Results");
+	run("Close");
 }
 
 list = getFileList(indir);
@@ -139,6 +139,3 @@ for (i=0; i<list.length; i++) {
 		segment(inFile, outFile);
 		}
 	}
-
-
-

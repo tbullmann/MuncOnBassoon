@@ -3,7 +3,7 @@ FIJI Macro for counting Munc spots on Bassoon blobs.
 
 ## Usage
 
-![Interface](doc/Munc_on_Bassoon.png)
+![Interface](doc/Munc_on_Bassoon_Interface.JPG)
 
 ## Note on data
 
