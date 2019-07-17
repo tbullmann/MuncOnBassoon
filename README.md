@@ -1,6 +1,6 @@
 # MuncOnBassoon
 FIJI Macro for counting Munc spots on Bassoon blobs.
-![example data](data/test_example.tif) ![example result](data/test_example.tif.segmented.tif)
+![example data](data/example_data.tif) ![example result](result/example_data.tif.segmented.tif)
 
 ## Usage
 
