@@ -47,35 +47,77 @@ function segment(inFile, outFile){
 	for (i=0; i<dilate_basson_blob; i++) {run("Dilate");}
 	run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
-	run("Analyze Particles...", "size=spot_background_area-Infinity show=[Count Masks] exclude clear include");
-	saveAs("Results", outFile+".bassoon.csv");
+    run("Analyze Particles...", "size=spot_background_area-Infinity show=[Count Masks] exclude clear include");
+    // Save results to Bassoon spot Area and Mean of Marker
+	nR1 = 1 + nResults; 
+//	Bassoon_label = newArray(nR1);
+	Bassoon_area = newArray(nR1);
+	Marker_mean = newArray(nR1);
+    Munc_count = newArray(nR1);
+	for (i=1; i<nR1;i++) {
+		Bassoon_area[i] = getResult("Area", i-1);
+		Marker_mean[i] = getResult("Mean", i-1);
+	}   
 
 	// Analyse Munc spots
 	selectWindow("Munc");
+    run("Duplicate...", "title=MuncMask"); 
 	run("Gaussian Blur...", "sigma=spot_size");
 	run("Subtract Background...", "rolling=spot_background_size");
 	if (minMunc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(minMunc), 255);}
 	run("Convert to Mask");
 	run("Set Measurements...", "area " + Measure + " redirect=[Count Masks of Bassoon] decimal=3");
 	run("Analyze Particles...", "size=min_spot_area-Infinity show=[Bare Outlines] exclude clear include");
-	saveAs("Results", outFile + ".raw.munc.csv");
-	// New result table with Area and Basson blob id (from the Measure)
-	nR = nResults;
-	label = newArray(nR);
-	area = newArray(nR);
-	blob_id = newArray(nR);
-	for (i=0; i<nR;i++) {
-		area[i] = getResult("Area", i);
-		if (InsideChoice=="one pixel inside") {blob_id[i] = getResult("Max", i);}
-		if (InsideChoice=="half inside") {blob_id[i] = getResult("Mode", i);}
-		if (InsideChoice=="completely inside") {blob_id[i] = getResult("Min", i);}
+	// Save results to Munc spot Area and Basson blob id (from the Measure)
+	nR2 = nResults;
+	Munc_area = newArray(nR2);
+	Basson_id = newArray(nR2);
+	for (i=0; i<nR2;i++) {
+		Munc_area[i] = getResult("Area", i);
+		if (InsideChoice=="one pixel inside") {Basson_id[i] = getResult("Max", i);}
+		if (InsideChoice=="half inside") {Basson_id[i] = getResult("Mode", i);}
+		if (InsideChoice=="completely inside") {Basson_id[i] = getResult("Min", i);}
 	}
+	
+    // Count Munc Spots per Bassoon blob
+    for (j=0; j<nR2; j++) {          // iterate through all munc spots
+    	Munc_count[Basson_id[j]]+=1; // increase count for basson id
+    }
+
+    // Measure und save Munc spot mean intensity
+    selectWindow("MuncMask");
+    run("Convert to Mask");
+	run("Set Measurements...", "area mean redirect=Munc decimal=3");
+	run("Analyze Particles...", "size=min_spot_area-Infinity show=[Bare Outlines] exclude clear include");
+	// Save results to Munc spot Area and Basson blob id (from the Measure)
+	Munc_mean = newArray(nR2);
+	for (i=0; i<nR2;i++) {
+		Munc_mean[i] = getResult("Mean", i);
+	}
+
+	// Save result table with Bassoon Area, Marker Mean, Munc Count per Basson blob
 	run("Clear Results"); 
-	for (i=0; i<nR;i++) {
-		setResult("Area", i, area[i]);
-		setResult("Bassoon_id", i, blob_id[i]);
+	for (i=0; i<nR1;i++) {
+//		setResult("Basson_id", i, Bassoon_label[i]);
+		setResult("Basson_id", i, i);
+		setResult("Basson_area", i, Bassoon_area[i]);
+		setResult("Marker_mean", i, Marker_mean[i]);
+		setResult("Munc_count", i, Munc_count[i]);
 	}
 	updateResults();
+	setOption("ShowRowNumbers", false);
+	saveAs("Results", outFile+".bassoon.csv");
+
+	// Save result table with Area and Basson blob id (from the Measure)
+	run("Clear Results"); 
+	for (i=0; i<nR2;i++) {
+		setResult("Munc_id", i, i+1);
+		setResult("Munc_area", i, Munc_area[i]);
+		setResult("Munc_mean", i, Munc_mean[i]);
+		setResult("Bassoon_id", i, Basson_id[i]);
+	}
+	updateResults();
+	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile + ".munc.csv");
 	
 	// Merge and save segmentation 
@@ -84,7 +126,7 @@ function segment(inFile, outFile){
 	saveAs("Tiff", outFile + ".segmented.tif");
 
 	// Close all images and the Results manager
-	while (nImages>0) { selectImage(nImages); close(); } 
+    while (nImages>0) { selectImage(nImages); close(); } 
 	selectWindow("Results"); 
 	run("Close"); 
 }
