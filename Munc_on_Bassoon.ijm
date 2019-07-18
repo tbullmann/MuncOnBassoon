@@ -24,14 +24,17 @@ function segment(inFile, outFile){
 	// Open and rename for processing
 	open(inFile);
 	rename("input");
-	getDimensions(width, height, channels, slices, frames);
-
+    
 	// TODO: Instead of the following reset of the scale to 1/pixel
 	// adjust the parameters measured in pixel according to the scale in the tiff
 	run("Set Scale...", "known=1 unit=pixel");
 
 	// Split colors and rename each channel according to Dialog for processing
-	run("Split Channels");
+	if (bitDepth()!=24) {
+		print("Skipped non RGB image " + inFile);
+		close();
+		return; }  
+    run("Split Channels");
 	selectWindow("input (red)");
 	rename(RedChoice);
 	selectWindow("input (green)");
@@ -39,14 +42,12 @@ function segment(inFile, outFile){
 	selectWindow("input (blue)");
 	rename(BlueChoice);
 
-
 	// Analyse Basoon blobs
 	selectWindow("Bassoon");
 	run("Gaussian Blur...", "sigma=spot_size");
 	if (minBassoon=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(minBassoon), 255);}
 	setOption("BlackBackground", true);
 	run("Convert to Mask");
-	
 	for (i=0; i<dilate_basson_blob; i++) {run("Dilate");}
 	run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
@@ -63,7 +64,7 @@ function segment(inFile, outFile){
 		Bassoon_area[i] = getResult("Area", i-1);
 		Marker_mean[i] = getResult("Mean", i-1);
 	}
-	Bassoon_area[0] = width * height - total_Bassoon_area;
+	Bassoon_area[0] = getWidth() * getHeight() - total_Bassoon_area;
 
 	// Analyse Munc spots
 	selectWindow("Munc");
@@ -93,7 +94,7 @@ function segment(inFile, outFile){
     // Munc spot density = Munc count / Bassoon area or background area
     for (i=0; i<nR1; i++) {Munc_density[i] = Munc_count[i] / Bassoon_area[i]; }
 
-    // Measure und save Munc spot mean intensity
+    // Measure Munc spot mean intensity
     selectWindow("Munc");
     run("Convert to Mask");
 	run("Set Measurements...", "area mean redirect=MuncRaw decimal=3");
@@ -107,7 +108,6 @@ function segment(inFile, outFile){
 	// Save result table with Bassoon Area, Marker Mean, Munc Count per Basson blob
 	run("Clear Results");
 	for (i=0; i<nR1;i++) {
-//		setResult("Basson_id", i, Bassoon_label[i]);
 		setResult("Basson_id", i, i);
 		setResult("Basson_area", i, Bassoon_area[i]);
 		setResult("Marker_mean", i, Marker_mean[i]);
