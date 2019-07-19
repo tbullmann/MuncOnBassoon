@@ -19,15 +19,15 @@ For each input file  this script produces three output files, which will be writ
 
 1. `example_data.tif.bassoon.csv` contains comma delimitted values for `Basson_id`, `Basson_area`, `Marker_mean`, `Munc_count` and `Munc_density`. The `Bassoon_id=0` referes to the background.
 
-|Basson_id|Basson_area|Marker_mean|Munc_count|Munc_density|
-|---------|-----------|-----------|----------|------------|
-|0        |64374      |0.000      |9         |1.398E-4    |
-|1        |290        |30.034     |1         |0.003       |
-|2        |121        |29.025     |0         |0.000       |
-|3        |526        |163.224    |2         |0.004       |
-|4        |1055       |143.863    |6         |0.006       |
-|..       |..         |..         |..        |..          |
-|17       |98         |32.265     |0         |0.000       |
+|Bassoon_id|Bassoon_area|Marker_mean|Munc_count|Munc_density|
+|----------|------------|-----------|----------|------------|
+|0         |64374       |0.000      |9         |1.398E-4    |
+|1         |290         |30.034     |1         |0.003       |
+|2         |121         |29.025     |0         |0.000       |
+|3         |526         |163.224    |2         |0.004       |
+|4         |1055        |143.863    |6         |0.006       |
+|..        |..          |..         |..        |..          |
+|17        |98          |32.265     |0         |0.000       |
 
 2. `example_data.tif.munc.csv` contains comma delimitted values for `Munc_id`, `Munc_area`, `Munc_mean`, and `Bassoon_id`.
 

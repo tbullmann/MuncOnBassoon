@@ -79,17 +79,17 @@ function segment(inFile, outFile){
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	nR2 = nResults;
 	Munc_area = newArray(nR2);
-	Basson_id = newArray(nR2);
+	Bassoon_id = newArray(nR2);
 	for (i=0; i<nR2;i++) {
 		Munc_area[i] = getResult("Area", i);
-		if (InsideChoice=="one pixel inside") {Basson_id[i] = getResult("Max", i);}
-		if (InsideChoice=="half inside") {Basson_id[i] = getResult("Mode", i);}
-		if (InsideChoice=="completely inside") {Basson_id[i] = getResult("Min", i);}
+		if (InsideChoice=="one pixel inside") {Bassoon_id[i] = getResult("Max", i);}
+		if (InsideChoice=="half inside") {Bassoon_id[i] = getResult("Mode", i);}
+		if (InsideChoice=="completely inside") {Bassoon_id[i] = getResult("Min", i);}
 	}
 
     // Count Munc Spots per Bassoon blob
     for (j=0; j<nR2; j++) {          // iterate through all munc spots
-    	Munc_count[Basson_id[j]]+=1; // increase count for basson id
+    	Munc_count[Bassoon_id[j]]+=1; // increase count for basson id
     }
     // Munc spot density = Munc count / Bassoon area or background area
     for (i=0; i<nR1; i++) {Munc_density[i] = Munc_count[i] / Bassoon_area[i]; }
@@ -108,8 +108,8 @@ function segment(inFile, outFile){
 	// Save result table with Bassoon Area, Marker Mean, Munc Count per Basson blob
 	run("Clear Results");
 	for (i=0; i<nR1;i++) {
-		setResult("Basson_id", i, i);
-		setResult("Basson_area", i, Bassoon_area[i]);
+		setResult("Bassoon_id", i, i);
+		setResult("Bassoon_area", i, Bassoon_area[i]);
 		setResult("Marker_mean", i, Marker_mean[i]);
 		setResult("Munc_count", i, Munc_count[i]);
 		setResult("Munc_density", i, Munc_density[i]);
@@ -124,7 +124,7 @@ function segment(inFile, outFile){
 		setResult("Munc_id", i, i+1);
 		setResult("Munc_area", i, Munc_area[i]);
 		setResult("Munc_mean", i, Munc_mean[i]);
-		setResult("Bassoon_id", i, Basson_id[i]);
+		setResult("Bassoon_id", i, Bassoon_id[i]);
 	}
 	updateResults();
 	setOption("ShowRowNumbers", false);
