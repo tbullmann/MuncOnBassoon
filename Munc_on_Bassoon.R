@@ -1,41 +1,43 @@
 # set working directory to /output
-setwd("output/")
-
-# read data from csv
-bassoon <- read.csv("example_data_3channel.tif.bassoon.csv")
-munc <- read.csv("example_data_3channel.tif.munc.csv")
-
-# specify threshold for synapse type marker
-marker_threshold = 100
-
-# which basson blobs express the synapse type marker
-ids <- bassoon[bassoon$Mean>marker_threshold, 1]
-
-# which vesicles belong to these bassoon blobs
-kept_vesicles <- munc[munc$Bassoon_id %in% ids,]
-
-# vesicle mean area (and SD) and vesicle number per basson blob
-vesicles_per_synapse <- aggregate(Area~Bassoon_id, data=kept_vesicles, FUN=function(x) c(Mean=mean(x),SD=sd(x),count=length(x)))
+setwd("../analysis/macro_output")
 
 
-## Misc
-# Some plot
+filenames <- Sys.glob("*.bassoon.csv")  # get a list of bassoon results
+BassoonBlobs <- lapply(filenames, function(.file){
+  dat<-read.csv(.file, header=T)
+  dat$filename<-as.character(.file)
+  dat    # return the dataframe
+})
+BassoonBlobs <- do.call(rbind, BassoonBlobs) # combine into a single dataframe
+# E followed by a integer number of any length, followed by a _ and then anything
+BassoonBlobs$experiment <- sub("E(\\d*)_.*", "\\1", BassoonBlobs$filename)
+# anything followed by _ then a string without _, followed by _ and then again anything
+BassoonBlobs$treatment <- sub(".*_([^_]+)_.*", "\\1", BassoonBlobs$filename)
+# last number before the dot = anything followed by a number of any length, followed by a . and anything
+BassoonBlobs$dish <- sub(".*_(\\d*)\\..*", "\\1", BassoonBlobs$filename)
+
+
+BassoonBlobs<-BassoonBlobs[!(BassoonBlobs$Bassoon_id==0),]
+
 library(lattice)
-densityplot(~Mean,data=bassoon)
 
-# Some statistics about area depending on marker expression
-munc$marker <- munc$Bassoon_id %in% ids
-aggregate(marker~Bassoon_id, data=munc, FUN=function(x) c(marker = mean(x),count=length(x)))
+histogram(~Marker_mean|experiment,auto.key=TRUE,data=BassoonBlobs)
 
-munc$Bassoon_id = as.factor(munc$Bassoon_id)
+densityplot(~Marker_mean|experiment,group=treatment,auto.key=TRUE,data=BassoonBlobs)
 
-# linear mixed effects model including the random effect 
-# within each bassoon spot  => p=0.5353
+
+densityplot(~Munc_count|experiment,group=treatment,auto.key=TRUE,data=BassoonBlobs)
+
+
+densityplot(~Munc_count|experiment,group=treatment,auto.key=TRUE,data=subset(BassoonBlobs,Marker_mean>50))
+
+
+# linear mixed effects model including the random effect within each dish
 library(nlme)
-model = lme(Area ~ marker, random=~1|Bassoon_id, data=munc, method="REML")
+model = lme(Munc_count ~ treatment, random=~1|dish, data=BassoonBlobs, method="REML")
 anova.lme(model, type="sequential", adjustSigma = FALSE)
 
-# simple ANOVA ignoring the random effect => p=0.741
-model2 = aov(Area ~ marker, data=munc)
+# simple ANOVA ignoring the random effect 
+model2 = aov(Munc_count ~ treatment, data=BassoonBlobs,)
 summary(model2)
 
