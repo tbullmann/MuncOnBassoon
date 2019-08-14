@@ -10,6 +10,8 @@
 #@ String(label="Munc threshold", value="Auto") minMunc 
 #@ Integer(label="Average diameter of Munc spots (pixel)", value=1) spot_size
 #@ String(label="Munc spot in Bassoon blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") InsideChoice
+#@ String(label="Marker threshold", value="Auto") minMarker
+#@ String(label="Minimum overlap for Marker-positive Bassoon blobs (pixels)", value=1) min_Marker_overlap
 
 // Parameters
 min_spot_area = spot_size*spot_size*3.1415/4
@@ -42,27 +44,34 @@ function segment(inFile, outFile){
 	selectWindow("input (blue)");
 	rename(BlueChoice);
 
+	// Analyse Marker
+	selectWindow("Marker");
+	if (minMarker=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMarker, dummy); } else {setThreshold(parseInt(minMarker), 255);}
+	run("Convert to Mask");
+
 	// Analyse Basoon blobs
 	selectWindow("Bassoon");
 	run("Gaussian Blur...", "sigma=spot_size");
-	if (minBassoon=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(minBassoon), 255);}
+	if (minBassoon=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minBasson, dummy);} else {setThreshold(parseInt(minBassoon), 255);}
 	setOption("BlackBackground", true);
 	run("Convert to Mask");
 	for (i=0; i<dilate_basson_blob; i++) {run("Dilate");}
+	// run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
     run("Analyze Particles...", "size=min_bassoon_area-Infinity show=[Count Masks] exclude clear include");
     // Save results to Bassoon spot Area and Mean of Marker
 	nR1 = 1 + nResults;   // additional for background with Bassoon id = 0
 	Bassoon_area = newArray(nR1);
-	Marker_mean = newArray(nR1);
+	Marker_overlap = newArray(nR1);
     Munc_count = newArray(nR1);
     Munc_density = newArray(nR1);
     total_Bassoon_area = 0;
 	for (i=1; i<nR1;i++) {
 		total_Bassoon_area  += getResult("Area", i-1);
 		Bassoon_area[i] = getResult("Area", i-1);
-		Marker_mean[i] = getResult("Mean", i-1);
+		// it is not possible to directly count the number of pixels in the ROI, therefore we use sum = mean * area
+		if (getResult("Mean", i-1) * getResult("Area", i-1) >= min_Marker_overlap) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;}
 	}
 	Bassoon_area[0] = getWidth() * getHeight() - total_Bassoon_area;
 
@@ -72,7 +81,7 @@ function segment(inFile, outFile){
     run("Duplicate...", "title=Munc");
 	run("Gaussian Blur...", "sigma=spot_size");
 	run("Subtract Background...", "rolling=spot_background_size");
-	if (minMunc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(minMunc), 255);}
+	if (minMunc=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMunc, dummy);} else {setThreshold(parseInt(minMunc), 255);}
 	run("Convert to Mask");
 	run("Set Measurements...", "area " + Measure + " redirect=[Count Masks of Bassoon] decimal=3");
 	run("Analyze Particles...", "size=min_spot_area-Infinity show=[Bare Outlines] exclude clear include");
@@ -110,7 +119,7 @@ function segment(inFile, outFile){
 	for (i=0; i<nR1;i++) {
 		setResult("Bassoon_id", i, i);
 		setResult("Bassoon_area", i, Bassoon_area[i]);
-		setResult("Marker_mean", i, Marker_mean[i]);
+		setResult("Marker_overlap", i, Marker_overlap[i]);
 		setResult("Munc_count", i, Munc_count[i]);
 		setResult("Munc_density", i, Munc_density[i]);
 	}
@@ -129,11 +138,30 @@ function segment(inFile, outFile){
 	updateResults();
 	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile + ".munc.csv");
-
+	
 	// Merge and save segmentation
 	run("Merge Channels...", "c1=" + RedChoice + " c2=" + GreenChoice + " c3=" + BlueChoice + " create");
+	selectWindow("Composite");  // On some Mac Version of FIJI, this seems neccessary
 	run("RGB Color");
+	selectWindow("Composite (RGB)");
 	saveAs("Tiff", outFile + ".segmented.tif");
+
+	// Save parameters
+	f=File.open(outFile + ".parameters.txt");
+	print(f, "Parameters used for segmentation\n");
+	print(f, "Red channel = " + RedChoice);
+	print(f, "Green channel = " + GreenChoice);
+	print(f, "Blue channel = " + BlueChoice);
+	if (minBassoon=="Auto"){print(f, "Bassoon threshold = " + Auto_minBassoon + " (Auto)");} else {print(f, "Bassoon threshold = " + minBassoon);}
+	print(f, "Minimum area of Bassoon blobs (pixels) = " + min_bassoon_area);
+	print(f, "Dilate area of Bassoon blobs (times) = " + dilate_basson_blob);
+	print(f, "Munc threshold = " + minMunc);
+	if (minMunc=="Auto"){print(f, "Munc threshold = " + Auto_minMunc + " (Auto)");} else {print(f, "Munc threshold = " + minMunc);}
+	print(f, "Average diameter of Munc spots (pixel) = " + spot_size);
+	print(f, "Munc spot in Bassoon blob when = " + InsideChoice);
+	if (minMarker=="Auto"){print(f, "Marker threshold = " + Auto_minMarker + " (Auto)");} else {print(f, "Marker threshold = " + minMarker);}
+	print(f, "Minimum overlap for Marker (pixels) = " + min_Marker_overlap);
+	File.close(f);
 
 	// Close all images and the Results manager
     while (nImages>0) { selectImage(nImages); close(); }
