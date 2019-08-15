@@ -4,18 +4,20 @@
 #@ String(label="Red channel", choices={"Bassoon", "Munc", "Marker"}, value="Munc", style="listBox") RedChoice
 #@ String(label="Green channel", choices={"Bassoon", "Munc", "Marker"}, value="Bassoon", style="listBox") GreenChoice
 #@ String(label="Blue channel", choices={"Bassoon", "Munc", "Marker"}, value="Marker", style="listBox") BlueChoice
-#@ String(label="Bassoon threshold", value="Auto") minBassoon
+#@ String(label="Bassoon threshold", value=25) minBassoon
 #@ Integer(label="Minimum area of Bassoon blobs (pixels)", value=250) min_bassoon_area
 #@ Integer(label="Dilate area of Bassoon blobs (times)", value=1) dilate_basson_blob
-#@ String(label="Munc threshold", value="Auto") minMunc 
+#@ String(label="Munc threshold", value=13) minMunc 
 #@ Integer(label="Average diameter of Munc spots (pixel)", value=1) spot_size
 #@ String(label="Munc spot in Bassoon blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") InsideChoice
+#@ Integer(label="Average diameter of synapses (pixel)", value=30) synapse_size
 #@ String(label="Marker threshold", value="Auto") minMarker
 #@ String(label="Minimum overlap for Marker-positive Bassoon blobs (pixels)", value=1) min_Marker_overlap
 
 // Parameters
 min_spot_area = spot_size*spot_size*3.1415/4
 spot_background_size = spot_size*2
+synapse_background_size = synapse_size*2
 
 // How to get the Basson blob id from the Count Mask
 if (InsideChoice=="one pixel inside") {Measure="min";}
@@ -46,8 +48,17 @@ function segment(inFile, outFile){
 
 	// Analyse Marker
 	selectWindow("Marker");
+	// if (minMarker=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMarker, dummy); } else {setThreshold(parseInt(minMarker), 255);}
+	// run("Convert to Mask");
+
+	run("Duplicate...", "title=Marker_background");
+	run("Gaussian Blur...", "sigma=" + synapse_background_size);
+	selectWindow("Marker");
+	run("Gaussian Blur...", "sigma=" + synapse_size);
+	imageCalculator("Subtract", "Marker","Marker_background");
 	if (minMarker=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMarker, dummy); } else {setThreshold(parseInt(minMarker), 255);}
 	run("Convert to Mask");
+	run("Median...", "radius=10");
 
 	// Analyse Basoon blobs
 	selectWindow("Bassoon");
@@ -159,6 +170,7 @@ function segment(inFile, outFile){
 	if (minMunc=="Auto"){print(f, "Munc threshold = " + Auto_minMunc + " (Auto)");} else {print(f, "Munc threshold = " + minMunc);}
 	print(f, "Average diameter of Munc spots (pixel) = " + spot_size);
 	print(f, "Munc spot in Bassoon blob when = " + InsideChoice);
+	print(f, "Average diameter of synapses (pixel) = " + synapse_size);
 	if (minMarker=="Auto"){print(f, "Marker threshold = " + Auto_minMarker + " (Auto)");} else {print(f, "Marker threshold = " + minMarker);}
 	print(f, "Minimum overlap for Marker (pixels) = " + min_Marker_overlap);
 	File.close(f);
@@ -167,6 +179,8 @@ function segment(inFile, outFile){
     while (nImages>0) { selectImage(nImages); close(); }
 	selectWindow("Results");
 	run("Close");
+
+	breakpoint
 }
 
 list = getFileList(indir);
