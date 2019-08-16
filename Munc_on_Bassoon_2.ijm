@@ -238,7 +238,7 @@ for (i=0; i<list.length; i++) {
 		}
 	}
 
-print ("Saving thresholds for " + j + " image files:");
+print ("Saving thresholds for " + j + " image files..");
 // Save the used thresholds for each file as  csv
 // List only values for used files
 run("Clear Results");
@@ -251,6 +251,3 @@ for (i=0; i<j;i++) {
 updateResults();
 setOption("ShowRowNumbers", false);
 saveAs("Results", outdir + "/used_thresholds.csv");
-
-
-
