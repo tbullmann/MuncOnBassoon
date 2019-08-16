@@ -1,33 +1,41 @@
 // Dialog
 #@ File(label="Select a input directory", style='directory') indir
 #@ File(label="Select a output directory", style='directory') outdir
-#@ String(label="Red channel", choices={"Bassoon", "Munc", "Marker"}, value="Munc", style="listBox") RedChoice
-#@ String(label="Green channel", choices={"Bassoon", "Munc", "Marker"}, value="Bassoon", style="listBox") GreenChoice
-#@ String(label="Blue channel", choices={"Bassoon", "Munc", "Marker"}, value="Marker", style="listBox") BlueChoice
-#@ String(label="Bassoon threshold", value=25) minBassoon
-#@ Integer(label="Minimum area of Bassoon blobs (pixels)", value=250) min_bassoon_area
-#@ Integer(label="Dilate area of Bassoon blobs (times)", value=1) dilate_basson_blob
-#@ String(label="Munc threshold", value=13) minMunc 
-#@ Integer(label="Average diameter of Munc spots (pixel)", value=1) spot_size
-#@ String(label="Munc spot in Bassoon blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") InsideChoice
-#@ Integer(label="Average diameter of synapses (pixel)", value=30) synapse_size
-#@ String(label="Marker threshold", value="Auto") minMarker
-#@ String(label="Minimum overlap for Marker-positive Bassoon blobs (pixels)", value=1) min_Marker_overlap
+
+#@ String(label="Red channel", choices={"Bassoon", "Munc", "Marker"}, value="Munc", style="listBox") channel_red
+#@ String(label="Green channel", choices={"Bassoon", "Munc", "Marker"}, value="Bassoon", style="listBox") channel_green
+#@ String(label="Blue channel", choices={"Bassoon", "Munc", "Marker"}, value="Marker", style="listBox") channel_blue
+
+#@ String(label="Munc threshold", value="Auto") threshold_Munc 
+#@ Integer(label="Minimal diameter of Munc spots (pixel)", value=2) minimum_diameter_Munc
+#@ Integer(label="Maximal diameter of Munc spots (pixel)", value=6) maximum_diameter_Munc
+#@ String(label="Munc spot in Bassoon blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") Munc_inside_Bassoon
+
+#@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
+#@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
+#@ Integer(label="Maximal diameter of Bassoon blobs (pixel)", value=25) maximum_diameter_Bassoon
+#@ Integer(label="Dilate Bassoon blobs (pixel)", value=1) dilations_Bassoon
+
+#@ String(label="Marker threshold", value="Auto") threshold_Marker
+#@ Integer(label="Minimal diameter of synapses (pixel)", value=50) min_diameter_Marker
+#@ Integer(label="Maximal diameter of synapses (pixel)", value=150) max_diameter_Marker
+#@ String(label="Minimum overlap for Marker-positive Bassoon blobs (pixel)", value=1) min_overlap_Marker
 
 // Parameters
-min_spot_area = spot_size*spot_size*3.1415/4
-spot_background_size = spot_size*2
-synapse_background_size = synapse_size*2
+min_area_Munc = minimum_diameter_Munc*minimum_diameter_Munc*3.1415/4
+min_area_Bassoon = minimum_diameter_Bassoon*minimum_diameter_Bassoon*3.1415/4
 
 // How to get the Basson blob id from the Count Mask
-if (InsideChoice=="one pixel inside") {Measure="min";}
-if (InsideChoice=="half inside") {Measure="modal";}
-if (InsideChoice=="completely inside") {Measure="min";}
+if (Munc_inside_Bassoon=="one pixel inside") {Measure="min";}
+if (Munc_inside_Bassoon=="half inside") {Measure="modal";}
+if (Munc_inside_Bassoon=="completely inside") {Measure="min";}
 
+// Segment a single image
 function segment(inFile, outFile){
 	// Open and rename for processing
 	open(inFile);
-	rename("input");
+	rename("Raw");
+	run("Duplicate...", "title=input");
     
 	// TODO: Instead of the following reset of the scale to 1/pixel
 	// adjust the parameters measured in pixel according to the scale in the tiff
@@ -40,33 +48,29 @@ function segment(inFile, outFile){
 		return; }  
     run("Split Channels");
 	selectWindow("input (red)");
-	rename(RedChoice);
+	rename(channel_red);
 	selectWindow("input (green)");
-	rename(GreenChoice);
+	rename(channel_green);
 	selectWindow("input (blue)");
-	rename(BlueChoice);
+	rename(channel_blue);
 
-	// Analyse Marker
+	// Analyse Marker for pre-synapses
 	selectWindow("Marker");
-	// if (minMarker=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMarker, dummy); } else {setThreshold(parseInt(minMarker), 255);}
-	// run("Convert to Mask");
-
-	run("Duplicate...", "title=Marker_background");
-	run("Gaussian Blur...", "sigma=" + synapse_background_size);
-	selectWindow("Marker");
-	run("Gaussian Blur...", "sigma=" + synapse_size);
-	imageCalculator("Subtract", "Marker","Marker_background");
-	if (minMarker=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMarker, dummy); } else {setThreshold(parseInt(minMarker), 255);}
+	run("Gaussian Blur...", "sigma=" + min_diameter_Marker/2);
+	run("Subtract Background...", "rolling=" + max_diameter_Marker/2);	
+	if (threshold_Marker=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Marker), 255);}
+	getThreshold(used_threshold_Marker, dummy);
 	run("Convert to Mask");
-	run("Median...", "radius=10");
+	run("Median...", "radius=5"); // ringing artifacts
 
-	// Analyse Basoon blobs
+	// Analyse Bassoon blobs
 	selectWindow("Bassoon");
-	run("Gaussian Blur...", "sigma=spot_size");
-	if (minBassoon=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minBasson, dummy);} else {setThreshold(parseInt(minBassoon), 255);}
-	setOption("BlackBackground", true);
+	run("Gaussian Blur...", "sigma=" + minimum_diameter_Bassoon/2);
+	run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);	
+	if (threshold_Bassoon=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Bassoon), 255);}
+	getThreshold(used_threshold_Bassoon, dummy);
 	run("Convert to Mask");
-	for (i=0; i<dilate_basson_blob; i++) {run("Dilate");}
+	for (i=0; i<dilations_Bassoon; i++) {run("Dilate");}
 	// run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	run("Set Measurements...", "area mean redirect=Marker decimal=3");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
@@ -82,7 +86,7 @@ function segment(inFile, outFile){
 		total_Bassoon_area  += getResult("Area", i-1);
 		Bassoon_area[i] = getResult("Area", i-1);
 		// it is not possible to directly count the number of pixels in the ROI, therefore we use sum = mean * area
-		if (getResult("Mean", i-1) * getResult("Area", i-1) >= min_Marker_overlap) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;}
+		if (getResult("Mean", i-1) * getResult("Area", i-1) >= min_overlap_Marker) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;}
 	}
 	Bassoon_area[0] = getWidth() * getHeight() - total_Bassoon_area;
 
@@ -90,21 +94,22 @@ function segment(inFile, outFile){
 	selectWindow("Munc");
 	rename("MuncRaw");
     run("Duplicate...", "title=Munc");
-	run("Gaussian Blur...", "sigma=spot_size");
-	run("Subtract Background...", "rolling=spot_background_size");
-	if (minMunc=="Auto"){setAutoThreshold("Default dark no-reset"); getThreshold(Auto_minMunc, dummy);} else {setThreshold(parseInt(minMunc), 255);}
+	run("Gaussian Blur...", "sigma=" + minimum_diameter_Munc/2);
+	run("Subtract Background...", "rolling=" + maximum_diameter_Munc/2);	
+	if (threshold_Munc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Munc), 255);}
+	getThreshold(used_threshold_Munc, dummy);
 	run("Convert to Mask");
 	run("Set Measurements...", "area " + Measure + " redirect=[Count Masks of Bassoon] decimal=3");
-	run("Analyze Particles...", "size=min_spot_area-Infinity show=[Bare Outlines] exclude clear include");
+	run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	nR2 = nResults;
 	Munc_area = newArray(nR2);
 	Bassoon_id = newArray(nR2);
 	for (i=0; i<nR2;i++) {
 		Munc_area[i] = getResult("Area", i);
-		if (InsideChoice=="one pixel inside") {Bassoon_id[i] = getResult("Max", i);}
-		if (InsideChoice=="half inside") {Bassoon_id[i] = getResult("Mode", i);}
-		if (InsideChoice=="completely inside") {Bassoon_id[i] = getResult("Min", i);}
+		if (Munc_inside_Bassoon=="one pixel inside") {Bassoon_id[i] = getResult("Max", i);}
+		if (Munc_inside_Bassoon=="half inside") {Bassoon_id[i] = getResult("Mode", i);}
+		if (Munc_inside_Bassoon=="completely inside") {Bassoon_id[i] = getResult("Min", i);}
 	}
 
     // Count Munc Spots per Bassoon blob
@@ -118,7 +123,7 @@ function segment(inFile, outFile){
     selectWindow("Munc");
     run("Convert to Mask");
 	run("Set Measurements...", "area mean redirect=MuncRaw decimal=3");
-	run("Analyze Particles...", "size=min_spot_area-Infinity show=[Bare Outlines] exclude clear include");
+	run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	Munc_mean = newArray(nR2);
 	for (i=0; i<nR2;i++) {
@@ -151,43 +156,101 @@ function segment(inFile, outFile){
 	saveAs("Results", outFile + ".munc.csv");
 	
 	// Merge and save segmentation
-	run("Merge Channels...", "c1=" + RedChoice + " c2=" + GreenChoice + " c3=" + BlueChoice + " create");
+	run("Merge Channels...", "c1=" + channel_red + " c2=" + channel_green + " c3=" + channel_blue + " create");
 	selectWindow("Composite");  // On some Mac Version of FIJI, this seems neccessary
 	run("RGB Color");
 	selectWindow("Composite (RGB)");
-	saveAs("Tiff", outFile + ".segmented.tif");
+	run("Duplicate...", "title=Segmented");
+	selectWindow("Composite (RGB)");
+	saveAs("PNG", outFile + ".segmented.png");
 
-	// Save parameters
-	f=File.open(outFile + ".parameters.txt");
-	print(f, "Parameters used for segmentation\n");
-	print(f, "Red channel = " + RedChoice);
-	print(f, "Green channel = " + GreenChoice);
-	print(f, "Blue channel = " + BlueChoice);
-	if (minBassoon=="Auto"){print(f, "Bassoon threshold = " + Auto_minBassoon + " (Auto)");} else {print(f, "Bassoon threshold = " + minBassoon);}
-	print(f, "Minimum area of Bassoon blobs (pixels) = " + min_bassoon_area);
-	print(f, "Dilate area of Bassoon blobs (times) = " + dilate_basson_blob);
-	print(f, "Munc threshold = " + minMunc);
-	if (minMunc=="Auto"){print(f, "Munc threshold = " + Auto_minMunc + " (Auto)");} else {print(f, "Munc threshold = " + minMunc);}
-	print(f, "Average diameter of Munc spots (pixel) = " + spot_size);
-	print(f, "Munc spot in Bassoon blob when = " + InsideChoice);
-	print(f, "Average diameter of synapses (pixel) = " + synapse_size);
-	if (minMarker=="Auto"){print(f, "Marker threshold = " + Auto_minMarker + " (Auto)");} else {print(f, "Marker threshold = " + minMarker);}
-	print(f, "Minimum overlap for Marker (pixels) = " + min_Marker_overlap);
-	File.close(f);
+	// Side by side montage
+	selectWindow("Raw");
+	getDimensions(w, h, c, z, t);
+	run("Canvas Size...", "width="+ 2*w +" height="+ h +" position=Top-Left");
+	run("Insert...", "source=Segmented destination=Raw x="+ w +" y=0");
+	saveAs("PNG", outFile + ".compare.png");
 
 	// Close all images and the Results manager
     while (nImages>0) { selectImage(nImages); close(); }
 	selectWindow("Results");
 	run("Close");
 
-	breakpoint
+	// Save parameters as YAML
+	File.delete(outFile + ".parameters.yaml")
+	f=File.open(outFile + ".parameters.yaml");
+	print(f, "# Parameters used for segmentation\n");
+	print(f, "channels:");
+	print(f, "   red: " + channel_red);
+	print(f, "   green: " + channel_green);
+	print(f, "   blue: " + channel_blue);
+	print(f, "Munc:");
+	print(f, "   threshold: " + used_threshold_Munc);
+	if (threshold_Munc=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}
+	print(f, "   min_diameter: " + minimum_diameter_Munc);
+	print(f, "   max_diameter: " + maximum_diameter_Munc);
+	print(f, "   inside_choice: " + Munc_inside_Bassoon);
+	print(f, "Bassoon:");
+	print(f, "   threshold: " + used_threshold_Bassoon);
+	if (threshold_Bassoon=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}	
+	print(f, "   min_diameter: " + minimum_diameter_Bassoon);
+	print(f, "   max_diameter: " + maximum_diameter_Bassoon);
+	print(f, "   dilations: " + dilations_Bassoon);
+	print(f, "Marker:");
+	print(f, "   threshold: " + used_threshold_Marker);
+	if (threshold_Marker=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}
+	print(f, "   min_diameter: " + min_diameter_Marker);
+	print(f, "   max_diameter: " + max_diameter_Marker);
+	print(f, "   min_overlap: " + min_overlap_Marker);
+	File.close(f);
+
+	// return thresholds
+	used_thresholds  = newArray(3);
+	used_thresholds[0] = used_threshold_Munc;
+	used_thresholds[1] = used_threshold_Bassoon;
+	used_thresholds[2] = used_threshold_Marker;
+	return used_thresholds;
 }
 
+
+// main 
+used_thresholds  = newArray(3);  
 list = getFileList(indir);
+used_filenames = newArray(list.length);
+used_thresholds_Munc = newArray(list.length);
+used_thresholds_Bassoon = newArray(list.length);
+used_thresholds_Marker = newArray(list.length);
+
+j = 0;   //counting used files (as there might be other files in the indir)
 for (i=0; i<list.length; i++) {
 	if ((endsWith(list[i], ".tif")) || (endsWith(list[i], ".png"))){
 		inFile = ""+indir+"/"+list[i];
 		outFile = ""+outdir+"/"+list[i];
-		segment(inFile, outFile);
+		used_thresholds = segment(inFile, outFile);
+		// storing used filename and associated thresholds
+		print ("Segmented " + (j+1) + ". image");
+		used_filenames[j] = list[i];
+		used_thresholds_Munc[j] = used_thresholds[0];
+		used_thresholds_Bassoon[j] = used_thresholds[1];
+		used_thresholds_Marker[j] = used_thresholds[2];
+		j++;  //increment index for next used file
 		}
 	}
+
+// Save the used thresholds for each file as  csv
+// List only values for used files
+print ("Saving thresholds for " + j + " image files..");
+run("Clear Results");
+for (i=0; i<j;i++) {
+	setResult("input_filename", i, used_filenames[i]);
+	setResult("used_threshold_Munc", i, used_thresholds_Munc[i]);
+	setResult("used_threshold_Bassoon", i, used_thresholds_Bassoon[i]);
+	setResult("used_threshold_Marker", i, used_thresholds_Marker[i]);
+}
+updateResults();
+setOption("ShowRowNumbers", false);
+saveAs("Results", outdir + "/used_thresholds.csv");
+// Close Results manager
+selectWindow("Results");
+run("Close");
+	
