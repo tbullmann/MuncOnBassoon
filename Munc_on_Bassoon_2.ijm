@@ -162,14 +162,14 @@ function segment(inFile, outFile){
 	selectWindow("Composite (RGB)");
 	run("Duplicate...", "title=Segmented");
 	selectWindow("Composite (RGB)");
-	saveAs("Tiff", outFile + ".segmented.tif");
+	saveAs("PNG", outFile + ".segmented.png");
 
 	// Side by side montage
 	selectWindow("Raw");
 	getDimensions(w, h, c, z, t);
 	run("Canvas Size...", "width="+ 2*w +" height="+ h +" position=Top-Left");
 	run("Insert...", "source=Segmented destination=Raw x="+ w +" y=0");
-	saveAs("Tiff", outFile + ".compare.tif");
+	saveAs("PNG", outFile + ".compare.png");
 
 	// Close all images and the Results manager
     while (nImages>0) { selectImage(nImages); close(); }
