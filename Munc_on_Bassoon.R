@@ -16,20 +16,14 @@ BassoonBlobs$treatment <- sub(".*_([^_]+)_.*", "\\1", BassoonBlobs$filename)
 # last number before the dot = anything followed by a number of any length, followed by a . and anything
 BassoonBlobs$dish <- sub(".*_(\\d*)\\..*", "\\1", BassoonBlobs$filename)
 
+BassoonBlobs$Munc_count <- as.integer(BassoonBlobs$Munc_count)
 
 BassoonBlobs<-BassoonBlobs[!(BassoonBlobs$Bassoon_id==0),]
 
 library(lattice)
 
-histogram(~Marker_mean|experiment,auto.key=TRUE,data=BassoonBlobs)
-
-densityplot(~Marker_mean|experiment,group=treatment,auto.key=TRUE,data=BassoonBlobs)
-
-
-densityplot(~Munc_count|experiment,group=treatment,auto.key=TRUE,data=BassoonBlobs)
-
-
-densityplot(~Munc_count|experiment,group=treatment,auto.key=TRUE,data=subset(BassoonBlobs,Marker_mean>50))
+histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=BassoonBlobs)
+histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=subset(BassoonBlobs,Marker_overlap==1))
 
 
 # linear mixed effects model including the random effect within each dish
