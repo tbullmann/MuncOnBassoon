@@ -26,6 +26,27 @@ histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=BassoonBlobs)
 histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=subset(BassoonBlobs,Marker_overlap==1))
 
 
+histogram(~Bassoon_area|experiment+treatment,auto.key=TRUE,data=subset(BassoonBlobs, Marker_overlap==1))
+
+
+mypanel <- function(x, color, ...) {
+  res <- hist(x, breaks=c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15), plot=FALSE);
+  xx <- res$breaks
+  yy <- cumsum(c(0,res$density))*10
+  print(xx)
+  print(yy)
+  panel.xyplot(xx,yy,type="l")
+} 
+
+histogram(~Munc_count|experiment,auto.key=TRUE,groups=treatment, data=BassoonBlobs,
+          panel=function(...)panel.superpose(...,panel.groups=mypanel, alpha=0.2, col=c("cyan","magenta")))
+
+
+
+
+
+
+
 # linear mixed effects model including the random effect within each dish
 library(nlme)
 model = lme(Munc_count ~ treatment, random=~1|dish, data=BassoonBlobs, method="REML")
