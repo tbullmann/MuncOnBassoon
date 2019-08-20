@@ -41,7 +41,33 @@ mypanel <- function(x, color, ...) {
 histogram(~Munc_count|experiment,auto.key=TRUE,groups=treatment, data=BassoonBlobs,
           panel=function(...)panel.superpose(...,panel.groups=mypanel, alpha=0.2, col=c("cyan","magenta")))
 
+###
 
+library(lme4)
+model = glm4(Munc_count ~ treatment + experiment + (1|dish), data=subset(BassoonBlobs, Marker_overlap==1 & Marker=="VGAT"), family = poisson(link = "log"))
+model = glmer(Munc_count ~ treatment + experiment + (1|dish), data=subset(BassoonBlobs, Marker_overlap==1 & Marker=="VGAT"), family = poisson(link = "log"))
+summary(model)
+G = glht(model, mcp(treatment = "Tukey", experiment = "Tukey"))
+summary(G)
+history()
+}
+confint(G)
+model = glmer(Munc_count ~ treatment + experiment, data=subset(BassoonBlobs, Marker_overlap==1 & Marker=="VGAT"), family = poisson(link = "log"))
+model = glm(Munc_count ~ treatment + experiment, data=subset(BassoonBlobs, Marker_overlap==1 & Marker=="VGAT"), family = poisson(link = "log"))
+summary(model)
+G = glht(model, mcp(treatment = "Tukey", experiment = "Tukey"))
+confint(G)
+summary(G)
+overdisp.glmer()
+overdisp_fun <- function(model) {
+rdf <- df.residual(model)
+rp <- residuals(model,type="pearson")
+Pearson.chisq <- sum(rp^2)
+prat <- Pearson.chisq/rdf
+pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+overdisp_fun(model)
 
 
 
