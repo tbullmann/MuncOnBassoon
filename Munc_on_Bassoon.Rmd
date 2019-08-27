@@ -1,12 +1,11 @@
 ---
 title: "Analysis of Munc on Bassoon Data"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
 ---
-
-
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
 
 ```{r setup}
     knitr::opts_knit$set(root.dir = normalizePath("../../Desktop/Kittel_Lab/macro_output/")) 
@@ -15,7 +14,12 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 ```{r}
 getwd()
 ```
-
+```{r}
+options(scipen = 999)  # disable scientific format for number
+options(digits= 3)     # use 3 digits
+library(dplyr)         # for multivariate summaries 
+library(lattice)       # for multivariate plots
+```
 
 # Data
 ## Load data
@@ -30,7 +34,7 @@ BassoonBlobs <- lapply(filenames, function(.file){
 BassoonBlobs <- do.call(rbind, BassoonBlobs) # combine into a single dataframe
 ```
 
-Parsing filenames
+## Parsing filenames
 
 ```{r}
 # E followed by a integer number of any length, followed by a _ and then anything
@@ -40,6 +44,8 @@ BassoonBlobs$treatment <- sub(".*_([^_]+)_.*", "\\1", BassoonBlobs$filename)
 # last number before the dot = anything followed by a number of any length, followed by a . and anything
 BassoonBlobs$dish <- sub(".*_(\\d*)\\..*", "\\1", BassoonBlobs$filename)
 ```
+
+## Cleanup
 
 Munc counts are integers
 
@@ -57,128 +63,78 @@ BassoonBlobs<-BassoonBlobs[!(BassoonBlobs$Bassoon_id==0),]
 BassoonBlobs$Marker <- ifelse(BassoonBlobs$experiment %in% c(6,7,9), "VGAT", "VGluT1")
 ```
 
-
-# Descriptive statistics
+# Show the data
 
 ```{r}
-library(lattice)
+head(BassoonBlobs)
 ```
 
+# Effect of TTX on Munc_count
 
-## Effect of TTX
+## All active zones
 
 ```{r}
-histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=BassoonBlobs)
 histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=BassoonBlobs, breaks=-1:15)
-
 ```
+
+We can see that each experiment has a similar distribution for the *Munc_count*.
+
+```{r}
+sem <-function (x) {sd(x)/sqrt(length(x)-1)}
+BassoonBlobs %>% group_by(experiment, treatment) %>% summarise_each(list(mean=mean, sem=sem, sd=sd, n=length), Munc_count) %>% ungroup
+```
+
+We can see that in most cases (except experiment 4) the Munc_count increases.
+
+*Note* that variance is not the same for each group. In fact *count data* often follow a Poisson distribution for which mean and variance are the same. In the following we we use a variance stabilizing transformation named Anscombe transformation to convert this Poisson distribution to a Gaussian distribution, for which we can calculate mean and sd as well as run the t-test.
+
+```{r}
+anscombe <- function (x) {2*sqrt(x+3/8)}   # variance stabilizing transformation for Poisson to Gaussian distribution
+amean <- function (x) {mean(anscombe(x))}
+asd <- function (x) {sd(anscombe(x))}
+asem <-function (x) {asd(x)/sqrt(length(x)-1)}
+
+BassoonBlobs %>% group_by(experiment, treatment) %>% summarise_each(list(mean=amean, sem=asem, sd=asd, n=length), Munc_count) %>% ungroup
+```
+
+Now the variance looks more similar for each group (control vs TTX) and we can run a little t-Test on each experiment. **Note** that this is without correction for multiple comparisons. 
+
+```{r}
+BassoonBlobs %>% group_by(experiment) %>% summarise(pval = t.test(anscombe(Munc_count) ~ treatment, var.equal = TRUE)$p.value) %>% ungroup
+```
+
+### Summary
+
+Experiments 2 and 3 (done with Sakamoto Munc antibody) do not show a significant change, whereas experiment 4 shows a significant reduction reduction. The remaining experiments show a significant increase in Munc_count for *all synapses*. 
+
+There are two types of synapses, excitatory (VGluT1) and inhibitory (VGAT). 
+
+*Note* Most of the synapses are excitatory, therefore increase should be due to excitatry synapses.
+
+
 ## Only active zones belonging to VGAT or VGluT1 marker
 
-```{r}
-histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=subset(BassoonBlobs,Marker_overlap=1), breaks=-1:15)
-
-```
-
-## Depending on synapse type
-
-Instead of plotting for experiments, pooling all experiments with same Marker.
+The active zones belong to either  excitatory or inhibitory synapses, which are labelled with VGluT1 or VGAT, respectively. We now restict the analysis to active zones which overlap with this marker for the synapse type..
 
 ```{r}
-histogram(~Munc_count|Marker+treatment,auto.key=TRUE, data=subset(BassoonBlobs, Marker_overlap=1), breaks=-1:15)
+histogram(~Munc_count|experiment+treatment,auto.key=TRUE,data=subset(BassoonBlobs,Marker_overlap==1), breaks=-1:15)
 ```
-### Restricted to experiments with Sakamoto Munc antibody
+
+Again summary statistitics without Anscombe..
 
 ```{r}
-histogram(~Munc_count|Marker+treatment,auto.key=TRUE,data=subset(BassoonBlobs, as.numeric(experiment)>2 & Marker_overlap==1 ), breaks=-1:15)
+subset(BassoonBlobs, Marker_overlap==1)  %>% group_by(experiment, treatment) %>% summarise_each(list(mean=mean, sem=sem, sd=sd, n=length), Munc_count) %>% ungroup
 ```
-### Restricted to last experiment 
+
+Again a simple t-test between control and TTX without correcting for multiple comparisons:
 
 ```{r}
-histogram(~Munc_count|Marker+treatment,auto.key=TRUE,data=subset(BassoonBlobs, as.numeric(experiment)>7 & Marker_overlap==1 ), breaks=-1:15)
+subset(BassoonBlobs,Marker_overlap==1)  %>% group_by(experiment) %>% summarise(pval = t.test(anscombe(Munc_count) ~ treatment, var.equal=TRUE)$p.value) %>% ungroup
 ```
 
-# Modelling of Munc per Bassoon
+### Summary
 
-Clearly, the count of munc spots per basson blob does not follow a normal distribution and we cannot use standard Linear Regression models like ANOVA to fit the data. Generalized Linear Models are models in which response variables follow a distribution other than the normal distribution. Specifically, we will use a Poisson Regression models, which are best used for modeling events where the outcomes are counts. 
-
-## Effect of TTX
-
-```{r}
-model = glm(Munc_count ~ treatment + experiment, data=BassoonBlobs, family = poisson(link = "log"))
-summary(model)
-```
-
-The Residual deviance is larger than degrees of freedom. This indicates **overdisperion**. In general, poisson distribution the variance is equal to the mean. We can test for the overdispersion by comparing the expected to the modeled residuals using this approxiate: https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#overdispersion.
-
-```{r}
-overdisp_fun <- function(model) {
-rdf <- df.residual(model)
-rp <- residuals(model,type="pearson")
-Pearson.chisq <- sum(rp^2)
-prat <- Pearson.chisq/rdf
-pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
-c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
-}
-```
-
-
-```{r}
-overdisp_fun(model)
-```
-
-Overdispersion means that the variance is much greater than the mean. Our model is to simple to explain this excess variance in the data. The general idea is to add another predictor to our model and which we do not really care for: a *random* effect. This could be the variation introduced by choosing a field of view for taking the image. This is in contrast to predictor we varied on purpose: a *fixed* effect. The modelling of these **mixed effect models** can be done by the package **lme4**.
-
-```{r}
-library(lme4)
-model = glmer(Munc_count ~ treatment + experiment + (1|dish), data=BassoonBlobs, family = poisson(link = "log"))
-summary(model)
-```
-
-
-
-### Excitatory synapses 
-
-```{r}
-model = glmer(Munc_count ~ treatment + experiment + (1|dish), data=subset(BassoonBlobs, Marker_overlap==1 & Marker=="VGluT1"), family = poisson(link = "log"))
-summary(model)
-```
-
-Post hoc Tukeys test
-
-```{r}
-library(multcomp)
-```
-
-
-```{r}
-G = glht(model, mcp(treatment = "Tukey", experiment = "Tukey"))
-summary(G)
-confint(G)
-```
-
-#### Restricted to last experiment
-
-```{r}
-model = glmer(Munc_count ~ treatment + (1|dish), data=subset(BassoonBlobs, experiment>7 & Marker_overlap==1 & Marker=="VGluT1"), family = poisson(link = "log"))
-summary(model)
-```
-
-
-
-### Inhibitory synapses 
-
-```{r}
-model = glmer(Munc_count ~ treatment + experiment + (1|dish), data=subset(BassoonBlobs, Marker_overlap==1 & Marker=="VGAT"), family = poisson(link = "log"))
-summary(model)
-```
-
-Post hoc Tukeys test
-
-```{r}
-G = glht(model, mcp(treatment = "Tukey", experiment = "Tukey"))
-summary(G)
-confint(G)
-```
+Experiment 6 (VGlutT1) is significant (p=0.02) increase of +60%, whereas the experiment 7 and 8 (VGAT) show no increase and no significance. Experiment 9 (VGluT1) might have an increase of about +40% but with the low number in the control it is not significant.
 
 
 
