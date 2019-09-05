@@ -99,14 +99,18 @@ function segment(inFile, outFile){
 	if (threshold_Munc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Munc), 255);}
 	getThreshold(used_threshold_Munc, dummy);
 	run("Convert to Mask");
-	run("Set Measurements...", "area " + Measure + " redirect=[Count Masks of Bassoon] decimal=3");
+	run("Set Measurements...", "centroid area " + Measure + " redirect=[Count Masks of Bassoon] decimal=3");
 	run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	nR2 = nResults;
 	Munc_area = newArray(nR2);
+	Munc_x = newArray(nR2);
+	Munc_y = newArray(nR2);
 	Bassoon_id = newArray(nR2);
 	for (i=0; i<nR2;i++) {
 		Munc_area[i] = getResult("Area", i);
+		Munc_x[i] = getResult("X", i);
+		Munc_y[i] = getResult("Y", i);
 		if (Munc_inside_Bassoon=="one pixel inside") {Bassoon_id[i] = getResult("Max", i);}
 		if (Munc_inside_Bassoon=="half inside") {Bassoon_id[i] = getResult("Mode", i);}
 		if (Munc_inside_Bassoon=="completely inside") {Bassoon_id[i] = getResult("Min", i);}
@@ -148,6 +152,8 @@ function segment(inFile, outFile){
 	for (i=0; i<nR2;i++) {
 		setResult("Munc_id", i, i+1);
 		setResult("Munc_area", i, Munc_area[i]);
+		setResult("Munc_x", i, Munc_x[i]);
+		setResult("Munc_y", i, Munc_y[i]);
 		setResult("Munc_mean", i, Munc_mean[i]);
 		setResult("Bassoon_id", i, Bassoon_id[i]);
 	}
