@@ -9,7 +9,7 @@
 #@ String(label="Munc threshold", value="Auto") threshold_Munc 
 #@ Integer(label="Minimal diameter of Munc spots (pixel)", value=2) minimum_diameter_Munc
 #@ Integer(label="Maximal diameter of Munc spots (pixel)", value=6) maximum_diameter_Munc
-#@ String(label="Munc spot in Bassoon blob when", choices={"one pixel inside", "half inside", "completely inside"}, value="half inside", style="listBox") Munc_inside_Bassoon
+#@ Integer(label="Maximal distance of Munc spots in cluster (pixel)", value=8) maximal_distance_Munc
 
 #@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
 #@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
@@ -19,16 +19,10 @@
 #@ String(label="Marker threshold", value="Auto") threshold_Marker
 #@ Integer(label="Minimal diameter of synapses (pixel)", value=50) min_diameter_Marker
 #@ Integer(label="Maximal diameter of synapses (pixel)", value=150) max_diameter_Marker
-#@ String(label="Minimum overlap for Marker-positive Bassoon blobs (pixel)", value=1) min_overlap_Marker
 
 // Parameters
 min_area_Munc = minimum_diameter_Munc*minimum_diameter_Munc*3.1415/4
 min_area_Bassoon = minimum_diameter_Bassoon*minimum_diameter_Bassoon*3.1415/4
-
-// How to get the Basson blob id from the Count Mask
-if (Munc_inside_Bassoon=="one pixel inside") {Measure="min";}
-if (Munc_inside_Bassoon=="half inside") {Measure="modal";}
-if (Munc_inside_Bassoon=="completely inside") {Measure="min";}
 
 // Segment a single image
 function segment(inFile, outFile){
@@ -72,9 +66,11 @@ function segment(inFile, outFile){
 	run("Convert to Mask");
 	for (i=0; i<dilations_Bassoon; i++) {run("Dilate");}
 	// run("Set Measurements...", "area mean redirect=Marker decimal=3");
-	run("Set Measurements...", "area mean redirect=Marker decimal=3");
+	run("Set Measurements...", "area min redirect=Marker decimal=3");
+	// First get the masks for segmentation images
+	run("Analyze Particles...", "size=min_bassoon_area-Infinity show=Masks exclude clear include");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
-    run("Analyze Particles...", "size=min_bassoon_area-Infinity show=[Count Masks] exclude clear include");
+    selectWindow("Bassoon"); run("Analyze Particles...", "size=min_bassoon_area-Infinity show=[Count Masks] exclude clear include");
     // Save results to Bassoon spot Area and Mean of Marker
 	nR1 = 1 + nResults;   // additional for background with Bassoon id = 0
 	Bassoon_area = newArray(nR1);
@@ -85,8 +81,7 @@ function segment(inFile, outFile){
 	for (i=1; i<nR1;i++) {
 		total_Bassoon_area  += getResult("Area", i-1);
 		Bassoon_area[i] = getResult("Area", i-1);
-		// it is not possible to directly count the number of pixels in the ROI, therefore we use sum = mean * area
-		if (getResult("Mean", i-1) * getResult("Area", i-1) >= min_overlap_Marker) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;}
+		if (getResult("Max", i-1) > 0) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;} 
 	}
 	Bassoon_area[0] = getWidth() * getHeight() - total_Bassoon_area;
 
@@ -99,8 +94,8 @@ function segment(inFile, outFile){
 	if (threshold_Munc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Munc), 255);}
 	getThreshold(used_threshold_Munc, dummy);
 	run("Convert to Mask");
-	run("Set Measurements...", "centroid area " + Measure + " redirect=[Count Masks of Bassoon] decimal=3");
-	run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
+	run("Set Measurements...", "centroid area min redirect=[Count Masks of Bassoon] decimal=3");
+	run("Analyze Particles...", "size=min_area_Munc-Infinity show=Nothing exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	nR2 = nResults;
 	Munc_area = newArray(nR2);
@@ -111,9 +106,7 @@ function segment(inFile, outFile){
 		Munc_area[i] = getResult("Area", i);
 		Munc_x[i] = getResult("X", i);
 		Munc_y[i] = getResult("Y", i);
-		if (Munc_inside_Bassoon=="one pixel inside") {Bassoon_id[i] = getResult("Max", i);}
-		if (Munc_inside_Bassoon=="half inside") {Bassoon_id[i] = getResult("Mode", i);}
-		if (Munc_inside_Bassoon=="completely inside") {Bassoon_id[i] = getResult("Min", i);}
+		Bassoon_id[i] = getResult("Max", i);
 	}
 
     // Count Munc Spots per Bassoon blob
@@ -127,12 +120,56 @@ function segment(inFile, outFile){
     selectWindow("Munc");
     run("Convert to Mask");
 	run("Set Measurements...", "area mean redirect=MuncRaw decimal=3");
-	run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
+	run("Analyze Particles...", "size=min_area_Munc-Infinity show=Masks exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	Munc_mean = newArray(nR2);
 	for (i=0; i<nR2;i++) {
 		Munc_mean[i] = getResult("Mean", i);
 	}
+
+	// Cluster Munc spots
+    selectWindow("Mask of Munc");
+    run("Duplicate...", "title=MuncCluster");
+    run("Convert to Mask");    
+    run("Maximum...", "radius="+(maximal_distance_Munc/2));
+	run("Set Measurements...", "min redirect=Marker decimal=3");
+	// First get the masks for segmentation images
+	selectWindow("MuncCluster"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
+	// exclude (clusters at the image border), clear (measurements), include (holes in the clusters)
+	selectWindow("MuncCluster"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Count Masks] display exclude clear include");
+    nR3 = nResults + 1;   
+	Cluster_Marker_overlap = newArray(nR3);
+    Cluster_Munc_count = newArray(nR3);
+	for (i=1; i<nR3;i++) {
+		if (getResult("Max", i-1) > 0) {Cluster_Marker_overlap[i] = 1;} else {Cluster_Marker_overlap[i] = 0;}
+	}
+	run("Clear Results");
+	// 
+	selectWindow("Mask of Munc");
+	run("Convert to Mask");    
+    run("Set Measurements...", "min redirect=[Count Masks of MuncCluster] decimal=3");
+	run("Analyze Particles...", "size=1-Infinity show=Nothing exclude clear include");
+	// Save results to Munc spot Area and Basson blob id (from the Measure)
+	Cluster_id = newArray(nR2);
+	for (i=0; i<nR2;i++) {
+		Cluster_id[i] = getResult("Min", i);
+	}
+	run("Clear Results");
+    // Count Munc Spots per Cluster
+    for (j=0; j<nR2; j++) {          // iterate through all munc spots
+    	Cluster_Munc_count[Cluster_id[j]]+=1; // increase count for cluster id
+    }
+
+    // Save result table with Munc Count per Cluster
+	run("Clear Results");
+	for (i=0; i<nR3;i++) {
+		setResult("Cluster_id", i, i);
+		setResult("Marker_overlap", i, Cluster_Marker_overlap[i]);
+		setResult("Munc_count", i, Cluster_Munc_count[i]);
+	}
+	updateResults();
+	setOption("ShowRowNumbers", false);
+	saveAs("Results", outFile+".cluster.csv");
 
 	// Save result table with Bassoon Area, Marker Mean, Munc Count per Basson blob
 	run("Clear Results");
@@ -156,13 +193,25 @@ function segment(inFile, outFile){
 		setResult("Munc_y", i, Munc_y[i]);
 		setResult("Munc_mean", i, Munc_mean[i]);
 		setResult("Bassoon_id", i, Bassoon_id[i]);
+		setResult("Cluster_id", i, Cluster_id[i]);
 	}
 	updateResults();
 	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile + ".munc.csv");
+
+	//Invert Outlines of Munc cluster to white on black
+	selectWindow("Drawing of MuncCluster"); run("Invert");
+
+	//Mask of Munc shows only particles large enough
+	selectWindow("Munc"); close();
+	selectWindow("Mask of Munc"); rename("Munc");
+	
+	//Mask of Bassoon shows only particles large enough
+	selectWindow("Bassoon"); close();
+	selectWindow("Mask of Bassoon"); rename("Bassoon");
 	
 	// Merge and save segmentation
-	run("Merge Channels...", "c1=" + channel_red + " c2=" + channel_green + " c3=" + channel_blue + " create");
+	run("Merge Channels...", "c1=" + channel_red + " c2=" + channel_green + " c3=" + channel_blue + " c4=[Drawing of MuncCluster] " + " create" );
 	selectWindow("Composite");  // On some Mac Version of FIJI, this seems neccessary
 	run("RGB Color");
 	selectWindow("Composite (RGB)");
@@ -195,7 +244,7 @@ function segment(inFile, outFile){
 	if (threshold_Munc=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}
 	print(f, "   min_diameter: " + minimum_diameter_Munc);
 	print(f, "   max_diameter: " + maximum_diameter_Munc);
-	print(f, "   inside_choice: " + Munc_inside_Bassoon);
+	print(f, "   cluster_distance: " + maximal_distance_Munc);
 	print(f, "Bassoon:");
 	print(f, "   threshold: " + used_threshold_Bassoon);
 	if (threshold_Bassoon=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}	
@@ -207,7 +256,6 @@ function segment(inFile, outFile){
 	if (threshold_Marker=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}
 	print(f, "   min_diameter: " + min_diameter_Marker);
 	print(f, "   max_diameter: " + max_diameter_Marker);
-	print(f, "   min_overlap: " + min_overlap_Marker);
 	File.close(f);
 
 	// return thresholds
