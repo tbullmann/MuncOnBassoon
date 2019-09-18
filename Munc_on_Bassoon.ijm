@@ -10,7 +10,7 @@
 #@ Integer(label="Minimal diameter of Munc spots (pixel)", value=2) minimum_diameter_Munc
 #@ Integer(label="Maximal diameter of Munc spots (pixel)", value=6) maximum_diameter_Munc
 #@ Integer(label="Maximal distance of Munc spots in cluster (pixel)", value=8) maximal_distance_Munc
-#@ String(label="Munc spot distance measured between", choices={"Borders", "Centroids", "Skeletons"}, value="Border", style="listBox") distance_from
+#@ String(label="Munc spot distance measured between", choices={"Borders", "Centroids", "Skeletons"}, value="Border", style="listBox") distance_between
 
 #@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
 #@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
@@ -139,11 +139,11 @@ function segment(inFile, outFile){
     selectWindow("Mask of Munc");
     run("Duplicate...", "title=MuncCluster");
     run("Convert to Mask");    
-    if (distance_from == "Centroids"){
+    if (distance_between == "Centroids"){
     	run("Select All"); run("Clear", "slice");                    // Clear all Munc spots
     	for (i=0; i<nR2;i++) {setPixel(Munc_x[i], Munc_y[i], 255);}  // Place a single pixel at center of each Munc spot
     	}
-    if (distance_from == "Skeletons") {run("Skeletonize");}	
+    if (distance_between == "Skeletons") {run("Skeletonize");}	
     run("Maximum...", "radius="+(maximal_distance_Munc/2));
 	run("Set Measurements...", "min redirect=Marker decimal=3");
 	// First get the masks for segmentation images
@@ -264,6 +264,8 @@ function segment(inFile, outFile){
 	print(f, "   min_diameter: " + minimum_diameter_Munc);
 	print(f, "   max_diameter: " + maximum_diameter_Munc);
 	print(f, "   cluster_distance: " + maximal_distance_Munc);
+	print(f, "   distance_between: " + distance_between);
+	
 	print(f, "Bassoon:");
 	print(f, "   threshold: " + used_threshold_Bassoon);
 	if (threshold_Bassoon=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}	
