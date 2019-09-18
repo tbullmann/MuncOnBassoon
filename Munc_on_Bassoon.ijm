@@ -10,6 +10,7 @@
 #@ Integer(label="Minimal diameter of Munc spots (pixel)", value=2) minimum_diameter_Munc
 #@ Integer(label="Maximal diameter of Munc spots (pixel)", value=6) maximum_diameter_Munc
 #@ Integer(label="Maximal distance of Munc spots in cluster (pixel)", value=8) maximal_distance_Munc
+#@ String(label="Munc spot distance measured between", choices={"Borders", "Centroids", "Skeletons"}, value="Border", style="listBox") distance_from
 
 #@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
 #@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
@@ -48,7 +49,9 @@ function segment(inFile, outFile){
 	selectWindow("input (blue)");
 	rename(channel_blue);
 
-	// Analyse Marker for pre-synapses
+
+	// ANALYSE MARKER
+	// Segment Marker for pre-synapses
 	selectWindow("Marker");
 	run("Gaussian Blur...", "sigma=" + min_diameter_Marker/2);
 	run("Subtract Background...", "rolling=" + max_diameter_Marker/2);	
@@ -57,7 +60,9 @@ function segment(inFile, outFile){
 	run("Convert to Mask");
 	run("Median...", "radius=5"); // ringing artifacts
 
-	// Analyse Bassoon blobs
+
+	// ANALYSE BASSON  
+	// Segment Bassoon blobs
 	selectWindow("Bassoon");
 	run("Gaussian Blur...", "sigma=" + minimum_diameter_Bassoon/2);
 	run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);	
@@ -85,7 +90,9 @@ function segment(inFile, outFile){
 	}
 	Bassoon_area[0] = getWidth() * getHeight() - total_Bassoon_area;
 
-	// Analyse Munc spots
+
+	// ANALYSE MUNC 
+	// Segment Munc spots
 	selectWindow("Munc");
 	rename("MuncRaw");
     run("Duplicate...", "title=Munc");
@@ -127,10 +134,16 @@ function segment(inFile, outFile){
 		Munc_mean[i] = getResult("Mean", i);
 	}
 
-	// Cluster Munc spots
+
+	// CLUSTER MUNC SPOTS
     selectWindow("Mask of Munc");
     run("Duplicate...", "title=MuncCluster");
     run("Convert to Mask");    
+    if (distance_from == "Centroids"){
+    	run("Select All"); run("Clear", "slice");                    // Clear all Munc spots
+    	for (i=0; i<nR2;i++) {setPixel(Munc_x[i], Munc_y[i], 255);}  // Place a single pixel at center of each Munc spot
+    	}
+    if (distance_from == "Skeletons") {run("Skeletonize");}	
     run("Maximum...", "radius="+(maximal_distance_Munc/2));
 	run("Set Measurements...", "min redirect=Marker decimal=3");
 	// First get the masks for segmentation images
@@ -144,12 +157,12 @@ function segment(inFile, outFile){
 		if (getResult("Max", i-1) > 0) {Cluster_Marker_overlap[i] = 1;} else {Cluster_Marker_overlap[i] = 0;}
 	}
 	run("Clear Results");
-	// 
+	// Get Cluster id for each Munc spot
 	selectWindow("Mask of Munc");
 	run("Convert to Mask");    
     run("Set Measurements...", "min redirect=[Count Masks of MuncCluster] decimal=3");
 	run("Analyze Particles...", "size=1-Infinity show=Nothing exclude clear include");
-	// Save results to Munc spot Area and Basson blob id (from the Measure)
+	// Save results to Cluster id (from the Measure)
 	Cluster_id = newArray(nR2);
 	for (i=0; i<nR2;i++) {
 		Cluster_id[i] = getResult("Min", i);
@@ -160,7 +173,9 @@ function segment(inFile, outFile){
     	Cluster_Munc_count[Cluster_id[j]]+=1; // increase count for cluster id
     }
 
-    // Save result table with Munc Count per Cluster
+
+	// SAVE RESULTS
+    // Save Munc cluster results: Marker overlap, Munc Count per Cluster
 	run("Clear Results");
 	for (i=0; i<nR3;i++) {
 		setResult("Cluster_id", i, i);
@@ -171,7 +186,7 @@ function segment(inFile, outFile){
 	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile+".cluster.csv");
 
-	// Save result table with Bassoon Area, Marker Mean, Munc Count per Basson blob
+	// Save Bassoon blob results: Bassoon Area, Marker Mean, Munc Count per Basson blob
 	run("Clear Results");
 	for (i=0; i<nR1;i++) {
 		setResult("Bassoon_id", i, i);
@@ -184,7 +199,7 @@ function segment(inFile, outFile){
 	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile+".bassoon.csv");
     
-	// Save result table with Area and Basson blob id (from the Measure)
+	// Save Munc spot results: Munc Area, Position, Mean, Basson blob id, Cluster id
 	run("Clear Results");
 	for (i=0; i<nR2;i++) {
 		setResult("Munc_id", i, i+1);
@@ -199,14 +214,16 @@ function segment(inFile, outFile){
 	setOption("ShowRowNumbers", false);
 	saveAs("Results", outFile + ".munc.csv");
 
+
+	// SAVE SEGMENTATION
 	//Invert Outlines of Munc cluster to white on black
 	selectWindow("Drawing of MuncCluster"); run("Invert");
 
-	//Mask of Munc shows only particles large enough
+	// Mask of Munc shows only particles large enough
 	selectWindow("Munc"); close();
 	selectWindow("Mask of Munc"); rename("Munc");
 	
-	//Mask of Bassoon shows only particles large enough
+	// Mask of Bassoon shows only particles large enough
 	selectWindow("Bassoon"); close();
 	selectWindow("Mask of Bassoon"); rename("Bassoon");
 	
@@ -231,6 +248,8 @@ function segment(inFile, outFile){
 	selectWindow("Results");
 	run("Close");
 
+
+	// SAVE PARAMETERS AND RETURN THRESHOLDS
 	// Save parameters as YAML
 	File.delete(outFile + ".parameters.yaml")
 	f=File.open(outFile + ".parameters.yaml");
