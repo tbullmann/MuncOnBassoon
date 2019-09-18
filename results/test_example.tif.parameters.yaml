@@ -4,20 +4,20 @@ channels:
    green: Bassoon
    blue: Marker
 Munc:
-   threshold: 34
+   threshold: 22
    thresholding: Auto
-   min_diameter: 2
-   max_diameter: 6
-   inside_choice: half inside
+   min_diameter: 6
+   max_diameter: 12
+   cluster_distance: 24
+   distance_between: Centroids
 Bassoon:
    threshold: 35
    thresholding: Auto
    min_diameter: 10
    max_diameter: 25
-   dilations: 1
+   dilations: 0
 Marker:
    threshold: 10
    thresholding: Auto
    min_diameter: 50
    max_diameter: 150
-   min_overlap: 1
