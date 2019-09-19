@@ -11,6 +11,8 @@
 #@ Integer(label="Maximal diameter of Munc spots (pixel)", value=6) maximum_diameter_Munc
 #@ Integer(label="Maximal distance of Munc spots in cluster (pixel)", value=8) maximal_distance_Munc
 #@ String(label="Munc spot distance measured between", choices={"Borders", "Centroids", "Skeletons"}, value="Border", style="listBox") distance_between
+#@ String(label="Show Munc clusters in segmentation", choices={true, false}, value=true, style="listBox") show_clusters
+
 
 #@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
 #@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
@@ -228,7 +230,8 @@ function segment(inFile, outFile){
 	selectWindow("Mask of Bassoon"); rename("Bassoon");
 	
 	// Merge and save segmentation
-	run("Merge Channels...", "c1=" + channel_red + " c2=" + channel_green + " c3=" + channel_blue + " c4=[Drawing of MuncCluster] " + " create" );
+	if (show_clusters==true) {run("Merge Channels...", "c1=" + channel_red + " c2=" + channel_green + " c3=" + channel_blue + " c4=[Drawing of MuncCluster] " + " create" );}
+		else {run("Merge Channels...", "c1=" + channel_red + " c2=" + channel_green + " c3=" + channel_blue + " create" );}
 	selectWindow("Composite");  // On some Mac Version of FIJI, this seems neccessary
 	run("RGB Color");
 	selectWindow("Composite (RGB)");
