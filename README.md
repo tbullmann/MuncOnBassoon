@@ -10,7 +10,7 @@ FIJI Macro for counting Munc spots on Bassoon blobs.
 ![Interface](doc/Munc_on_Bassoon_Interface.JPG)
 
 1. The minimal diameters are used to average out noise, the maximal diameter is used to subtract the background. All of these diameters are measured in pixels.
-2. All Munc spots that are closer than a specified maximal distance (in pixels) are part of the same cluster. The distance can be measured between the borders of the segmented Munc spots, their centroids or their skeletons. 
+2. All Munc spots that are closer than a specified maximal distance (in pixels) are part of the same cluster. The distance can be measured between the borders of the segmented Munc spots, their centroids or their skeletons.
 3. It is recommended check the literature and convert these values to pixels depending on the scaling of the images. For instance, [Sakamoto et al., 2018](https://www.nature.com/articles/s41593-017-0042-8) reported 44.9 ± 12.0 nm for Munc spot diameter (1.) and 84.7 ± 22.7 nm for their distance within clusters (2.).
 4. It is recommended to first use the Auto threshold feature and check the used thresholds (see note on results below). Then calculate the average threshold for each channel over all images and explore different thresholds close to that average value until the segmentations looks fine.
 
@@ -97,6 +97,11 @@ After all images are processed, another file is created: `used_thresholds.csv` c
 | test_example.tif | 34                  | 35                     | 10                    |
 
 
+## Note on clustering
+
+![clustering based on distance](doc/clustering.jpg)
+
+Munc spots are clustered if the `distance_between` the Munc spots is below a specified `cluster_distance`. For instance, if the `distance_between` the Munc spots (A) is measured between their centroids (B), a circle with the radius half on the `distance_between` (d_max) is drawn around them (C). Munc spots belong to the same cluster if their circles overlap (D), otherwise not (E). Therefore each cluster contains 1 or more Munc spots (F).
 
 ## Note on test data
 * The `example_data.tif` STORM image in the `doc` folder is a copy of figure panel 5B from the following publication. It has been made available via CC BY 3.0. Please note that this is not a labelling by Munc and Bassoon.
