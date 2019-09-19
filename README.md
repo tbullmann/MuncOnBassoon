@@ -11,7 +11,7 @@ FIJI Macro for counting Munc spots on Bassoon blobs.
 
 1. The minimal diameters are used to average out noise, the maximal diameter is used to subtract the background. All of these diameters are measured in pixels.
 2. All Munc spots that are closer than a specified maximal distance (in pixels) are part of the same cluster. The distance can be measured between the borders of the segmented Munc spots, their centroids or their skeletons.
-3. It is recommended check the literature and convert these values to pixels depending on the scaling of the images. For instance, [Sakamoto et al., 2018](https://www.nature.com/articles/s41593-017-0042-8) reported 44.9 ± 12.0 nm for Munc spot diameter (1.) and 84.7 ± 22.7 nm for their distance within clusters (2.).
+3. It is recommended check the literature and convert these values to pixels depending on the scaling of the images. For instance, [Sakamoto et al., 2018](https://www.nature.com/articles/s41593-017-0041-9) reported 44.9 ± 12.0 nm (30 ~ 80 nm) for Munc spot diameter (1.) and 84.7 ± 22.7 nm (45 ~ 160 nm) for their distance within clusters (2.).
 4. It is recommended to first use the Auto threshold feature and check the used thresholds (see note on results below). Then calculate the average threshold for each channel over all images and explore different thresholds close to that average value until the segmentations looks fine.
 
 ## Note on data
