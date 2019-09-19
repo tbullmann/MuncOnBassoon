@@ -99,7 +99,7 @@ After all images are processed, another file is created: `used_thresholds.csv` c
 
 ## Note on clustering
 
-![clustering based on distance](doc/clustering.jpg)
+![clustering based on distance](doc/clustering.png)
 
 Munc spots are clustered if the `distance_between` the Munc spots is below a specified `cluster_distance`. For instance, if the `distance_between` the Munc spots (A) is measured between their centroids (B), a circle with the radius half on the `distance_between` (d_max) is drawn around them (C). Munc spots belong to the same cluster if their circles overlap (D), otherwise not (E). Therefore each cluster contains 1 or more Munc spots (F).
 
