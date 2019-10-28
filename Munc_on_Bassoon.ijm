@@ -17,7 +17,7 @@
 #@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
 #@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
 #@ Integer(label="Maximal diameter of Bassoon blobs (pixel)", value=25) maximum_diameter_Bassoon
-#@ Integer(label="Dilate Bassoon blobs (pixel)", value=1) dilations_Bassoon
+#@ Integer(label="Dilate Bassoon blobs (pixel)", value=0) dilations_Bassoon
 
 #@ String(label="Marker threshold", value="Auto") threshold_Marker
 #@ Integer(label="Minimal diameter of synapses (pixel)", value=50) min_diameter_Marker
@@ -66,6 +66,8 @@ function segment(inFile, outFile){
 	// ANALYSE BASSON  
 	// Segment Bassoon blobs
 	selectWindow("Bassoon");
+	rename("BassoonRaw");
+    run("Duplicate...", "title=Bassoon");
 	run("Gaussian Blur...", "sigma=" + minimum_diameter_Bassoon/2);
 	run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);	
 	if (threshold_Bassoon=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Bassoon), 255);}
@@ -126,16 +128,30 @@ function segment(inFile, outFile){
     for (i=0; i<nR1; i++) {Munc_density[i] = Munc_count[i] / Bassoon_area[i]; }
 
     // Measure Munc spot mean intensity
-    selectWindow("Munc");
-    run("Convert to Mask");
-	run("Set Measurements...", "area mean redirect=MuncRaw decimal=3");
-	run("Analyze Particles...", "size=min_area_Munc-Infinity show=Masks exclude clear include");
+    selectWindow("MuncRaw");
+    run("Subtract Background...", "rolling=" + maximum_diameter_Munc/2);	
+    run("Set Measurements...", "area mean redirect=MuncRaw decimal=3");
+    selectWindow("Munc"); run("Convert to Mask"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=Masks exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
 	Munc_mean = newArray(nR2);
 	for (i=0; i<nR2;i++) {
 		Munc_mean[i] = getResult("Mean", i);
 	}
 
+	// Measure Bassoon spot mean intensity
+	selectWindow("BassoonRaw");
+    run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);	
+	run("Set Measurements...", "area mean redirect=BassoonRaw decimal=3");
+	selectWindow("Bassoon"); run("Convert to Mask"); run("Analyze Particles...", "size=min_bassoon_area-Infinity show=[Count Masks] exclude clear include");
+	// Save results to Munc spot Area and Basson blob id (from the Measure)
+	Bassoon_mean = newArray(nR1);
+	print("--");
+	print(nR1);
+	print(nResults);
+	for (i=1; i<nR1;i++) {
+		Bassoon_mean[i] = getResult("Mean", i-1);
+	}
+	Bassoon_mean[0] = 0;
 
 	// CLUSTER MUNC SPOTS
     selectWindow("Mask of Munc");
@@ -193,6 +209,7 @@ function segment(inFile, outFile){
 	for (i=0; i<nR1;i++) {
 		setResult("Bassoon_id", i, i);
 		setResult("Bassoon_area", i, Bassoon_area[i]);
+		setResult("Bassoon_amount", i, Bassoon_area[i] * Bassoon_mean[i]);
 		setResult("Marker_overlap", i, Marker_overlap[i]);
 		setResult("Munc_count", i, Munc_count[i]);
 		setResult("Munc_density", i, Munc_density[i]);
