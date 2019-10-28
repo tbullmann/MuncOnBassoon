@@ -227,9 +227,9 @@ function segment(inFile, outFile){
 	for (i=0; i<nR2;i++) {
 		setResult("Munc_id", i, i+1);
 		setResult("Munc_area", i, Munc_area[i]);
+		setResult("Munc_amount", i, Munc_area[i] * Munc_mean[i]);
 		setResult("Munc_x", i, Munc_x[i]);
 		setResult("Munc_y", i, Munc_y[i]);
-		setResult("Munc_mean", i, Munc_mean[i]);
 		setResult("Bassoon_id", i, Bassoon_id[i]);
 		setResult("Cluster_id", i, Cluster_id[i]);
 	}
