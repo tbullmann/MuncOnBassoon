@@ -23,6 +23,10 @@
 #@ Integer(label="Minimal diameter of synapses (pixel)", value=50) min_diameter_Marker
 #@ Integer(label="Maximal diameter of synapses (pixel)", value=150) max_diameter_Marker
 
+#@ String(label="Save segmentation", choices={"yes", "no"}, value="yes", style="listBox") save_segmentation
+#@ String(label="Save side by side comparison", choices={"yes", "no"}, value="yes", style="listBox") save_comparison
+
+
 // Parameters
 min_area_Munc = minimum_diameter_Munc*minimum_diameter_Munc*3.1415/4
 min_area_Bassoon = minimum_diameter_Bassoon*minimum_diameter_Bassoon*3.1415/4
@@ -254,14 +258,14 @@ function segment(inFile, outFile){
 	selectWindow("Composite (RGB)");
 	run("Duplicate...", "title=Segmented");
 	selectWindow("Composite (RGB)");
-	saveAs("PNG", outFile + ".segmented.png");
+	if (save_segmentation=="Yes") {saveAs("PNG", outFile + ".segmented.png");}
 
 	// Side by side montage
 	selectWindow("Raw");
 	getDimensions(w, h, c, z, t);
 	run("Canvas Size...", "width="+ 2*w +" height="+ h +" position=Top-Left");
 	run("Insert...", "source=Segmented destination=Raw x="+ w +" y=0");
-	saveAs("PNG", outFile + ".compare.png");
+	if (save_comparison=="Yes") {saveAs("PNG", outFile + ".compare.png");}
 
 	// Close all images and the Results manager
     while (nImages>0) { selectImage(nImages); close(); }
