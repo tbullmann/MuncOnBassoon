@@ -9,6 +9,8 @@
 #@ String(label="Munc threshold", value="Auto") threshold_Munc 
 #@ Integer(label="Minimal diameter of Munc spots (pixel)", value=2) minimum_diameter_Munc
 #@ Integer(label="Maximal diameter of Munc spots (pixel)", value=6) maximum_diameter_Munc
+#@ String(label="Munc background subtraction", choices={"yes", "no (do not use maximal diameter)"}, value="yes", style="listBox") Munc_background_subtraction
+
 #@ Integer(label="Maximal distance of Munc spots in cluster (pixel)", value=8) maximal_distance_Munc
 #@ String(label="Munc spot distance measured between", choices={"Borders", "Centroids", "Skeletons"}, value="Border", style="listBox") distance_between
 #@ String(label="Show Munc clusters in segmentation", choices={"yes", "no"}, value="yes", style="listBox") show_clusters
@@ -17,11 +19,15 @@
 #@ String(label="Bassoon threshold", value="Auto") threshold_Bassoon
 #@ Integer(label="Minimal diameter of Bassoon blobs (pixel)", value=10) minimum_diameter_Bassoon
 #@ Integer(label="Maximal diameter of Bassoon blobs (pixel)", value=25) maximum_diameter_Bassoon
+#@ String(label="Bassoon background subtraction", choices={"yes", "no (do not use maximal diameter)"}, value="yes", style="listBox") Bassoon_background_subtraction
+
 #@ Integer(label="Dilate Bassoon blobs (pixel)", value=0) dilations_Bassoon
 
 #@ String(label="Marker threshold", value="Auto") threshold_Marker
 #@ Integer(label="Minimal diameter of synapses (pixel)", value=50) min_diameter_Marker
 #@ Integer(label="Maximal diameter of synapses (pixel)", value=150) max_diameter_Marker
+#@ String(label="Marker background subtraction", choices={"yes", "no (do not use maximal diameter)"}, value="yes", style="listBox") Marker_background_subtraction
+
 
 #@ String(label="Save segmentation", choices={"yes", "no"}, value="yes", style="listBox") save_segmentation
 #@ String(label="Save side by side comparison", choices={"yes", "no"}, value="yes", style="listBox") save_comparison
@@ -60,7 +66,7 @@ function segment(inFile, outFile){
 	// Segment Marker for pre-synapses
 	selectWindow("Marker");
 	run("Gaussian Blur...", "sigma=" + min_diameter_Marker/2);
-	run("Subtract Background...", "rolling=" + max_diameter_Marker/2);	
+	if (Marker_background_subtraction=="Yes") {run("Subtract Background...", "rolling=" + max_diameter_Marker/2);}
 	if (threshold_Marker=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Marker), 255);}
 	getThreshold(used_threshold_Marker, dummy);
 	run("Convert to Mask");
@@ -73,13 +79,13 @@ function segment(inFile, outFile){
 	rename("BassoonRaw");
     run("Duplicate...", "title=Bassoon");
 	run("Gaussian Blur...", "sigma=" + minimum_diameter_Bassoon/2);
-	run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);	
+	if (Bassoon_background_subtraction=="Yes") {run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);}
 	if (threshold_Bassoon=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Bassoon), 255);}
 	getThreshold(used_threshold_Bassoon, dummy);
 	run("Convert to Mask");
 	for (i=0; i<dilations_Bassoon; i++) {run("Dilate");}
 	// run("Set Measurements...", "area mean redirect=Marker decimal=3");
-	run("Set Measurements...", "area min redirect=Marker decimal=3");
+	run("Set Measurements...", "centroid area min redirect=Marker decimal=3");
 	// First get the masks for segmentation images
 	run("Analyze Particles...", "size=min_bassoon_area-Infinity show=Masks exclude clear include");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
@@ -87,6 +93,8 @@ function segment(inFile, outFile){
     // Save results to Bassoon spot Area and Mean of Marker
 	nR1 = 1 + nResults;   // additional for background with Bassoon id = 0
 	Bassoon_area = newArray(nR1);
+	Bassoon_x = newArray(nR1);
+	Bassoon_y = newArray(nR1);
 	Marker_overlap = newArray(nR1);
     Munc_count = newArray(nR1);
     Munc_density = newArray(nR1);
@@ -94,6 +102,8 @@ function segment(inFile, outFile){
 	for (i=1; i<nR1;i++) {
 		total_Bassoon_area  += getResult("Area", i-1);
 		Bassoon_area[i] = getResult("Area", i-1);
+		Bassoon_x[i] = getResult("X", i-1);
+		Bassoon_y[i] = getResult("Y", i-1);
 		if (getResult("Max", i-1) > 0) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;} 
 	}
 	Bassoon_area[0] = getWidth() * getHeight() - total_Bassoon_area;
@@ -105,7 +115,7 @@ function segment(inFile, outFile){
 	rename("MuncRaw");
     run("Duplicate...", "title=Munc");
 	run("Gaussian Blur...", "sigma=" + minimum_diameter_Munc/2);
-	run("Subtract Background...", "rolling=" + maximum_diameter_Munc/2);	
+	if (Munc_background_subtraction=="Yes") {run("Subtract Background...", "rolling=" + maximum_diameter_Munc/2);}	
 	if (threshold_Munc=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Munc), 255);}
 	getThreshold(used_threshold_Munc, dummy);
 	run("Convert to Mask");
@@ -133,7 +143,6 @@ function segment(inFile, outFile){
 
     // Measure Munc spot mean intensity
     selectWindow("MuncRaw");
-    run("Subtract Background...", "rolling=" + maximum_diameter_Munc/2);	
     run("Set Measurements...", "area mean redirect=MuncRaw decimal=3");
     selectWindow("Munc"); run("Convert to Mask"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=Masks exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
@@ -144,7 +153,6 @@ function segment(inFile, outFile){
 
 	// Measure Bassoon spot mean intensity
 	selectWindow("BassoonRaw");
-    run("Subtract Background...", "rolling=" + maximum_diameter_Bassoon/2);	
 	run("Set Measurements...", "area mean redirect=BassoonRaw decimal=3");
 	selectWindow("Bassoon"); run("Convert to Mask"); run("Analyze Particles...", "size=min_bassoon_area-Infinity show=[Count Masks] exclude clear include");
 	// Save results to Munc spot Area and Basson blob id (from the Measure)
@@ -214,6 +222,8 @@ function segment(inFile, outFile){
 		setResult("Bassoon_id", i, i);
 		setResult("Bassoon_area", i, Bassoon_area[i]);
 		setResult("Bassoon_amount", i, Bassoon_area[i] * Bassoon_mean[i]);
+		setResult("Bassoon_x", i, Bassoon_x[i]);
+		setResult("Bassoon_y", i, Bassoon_y[i]);
 		setResult("Marker_overlap", i, Marker_overlap[i]);
 		setResult("Munc_count", i, Munc_count[i]);
 		setResult("Munc_density", i, Munc_density[i]);
@@ -286,7 +296,7 @@ function segment(inFile, outFile){
 	print(f, "   threshold: " + used_threshold_Munc);
 	if (threshold_Munc=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}
 	print(f, "   min_diameter: " + minimum_diameter_Munc);
-	print(f, "   max_diameter: " + maximum_diameter_Munc);
+	if (Munc_background_subtraction=="Yes") {print(f, "   max_diameter: " + maximum_diameter_Munc);} else print(f, "   max_diameter: None");
 	print(f, "   cluster_distance: " + maximal_distance_Munc);
 	print(f, "   distance_between: " + distance_between);
 	
@@ -294,13 +304,13 @@ function segment(inFile, outFile){
 	print(f, "   threshold: " + used_threshold_Bassoon);
 	if (threshold_Bassoon=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}	
 	print(f, "   min_diameter: " + minimum_diameter_Bassoon);
-	print(f, "   max_diameter: " + maximum_diameter_Bassoon);
+	if (Bassoon_background_subtraction=="Yes") {print(f, "   max_diameter: " + maximum_diameter_Bassoon);} else {print(f, "   max_diameter: None");}
 	print(f, "   dilations: " + dilations_Bassoon);
 	print(f, "Marker:");
 	print(f, "   threshold: " + used_threshold_Marker);
 	if (threshold_Marker=="Auto"){print(f, "   thresholding: Auto");} else {print(f, "   thresholding: Fixed");}
 	print(f, "   min_diameter: " + min_diameter_Marker);
-	print(f, "   max_diameter: " + max_diameter_Marker);
+	if (Marker_background_subtraction=="Yes") {print(f, "   max_diameter: " + max_diameter_Marker);} else {print(f, "   max_diameter: None");} 
 	File.close(f);
 
 	// return thresholds
