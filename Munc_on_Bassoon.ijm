@@ -21,7 +21,7 @@
 #@ Integer(label="Maximal diameter of Bassoon blobs (pixel)", value=25) maximum_diameter_Bassoon
 #@ String(label="Bassoon background subtraction", choices={"yes", "no (do not use maximal diameter)"}, value="yes", style="listBox") Bassoon_background_subtraction
 
-#@ Integer(label="Dilate Bassoon blobs (pixel)", value=0) dilations_Bassoon
+#@ Integer(label="Expand Bassoon blobs (pixel)", value=0) dilations_Bassoon
 
 #@ String(label="Marker threshold", value="Auto") threshold_Marker
 #@ Integer(label="Minimal diameter of synapses (pixel)", value=50) min_diameter_Marker
@@ -83,9 +83,9 @@ function segment(inFile, outFile){
 	if (threshold_Bassoon=="Auto"){setAutoThreshold("Default dark no-reset");} else {setThreshold(parseInt(threshold_Bassoon), 255);}
 	getThreshold(used_threshold_Bassoon, dummy);
 	run("Convert to Mask");
-	for (i=0; i<dilations_Bassoon; i++) {run("Dilate");}
+	if (dilations_Bassoon>0) {run("Maximum...", "radius="+dilations_Bassoon);}
 	// run("Set Measurements...", "area mean redirect=Marker decimal=3");
-	run("Set Measurements...", "centroid area min redirect=Marker decimal=3");
+	run("Set Measurements...", "centroid shape area min redirect=Marker decimal=3");
 	// First get the masks for segmentation images
 	run("Analyze Particles...", "size=min_bassoon_area-Infinity show=Masks exclude clear include");
 	// exclude (blobs at the image border), clear (measuremnts), include (holes in the blobs)
@@ -93,6 +93,8 @@ function segment(inFile, outFile){
     // Save results to Bassoon spot Area and Mean of Marker
 	nR1 = 1 + nResults;   // additional for background with Bassoon id = 0
 	Bassoon_area = newArray(nR1);
+	Bassoon_circ = newArray(nR1);
+	Bassoon_AR = newArray(nR1);
 	Bassoon_x = newArray(nR1);
 	Bassoon_y = newArray(nR1);
 	Marker_overlap = newArray(nR1);
@@ -102,6 +104,8 @@ function segment(inFile, outFile){
 	for (i=1; i<nR1;i++) {
 		total_Bassoon_area  += getResult("Area", i-1);
 		Bassoon_area[i] = getResult("Area", i-1);
+		Bassoon_circ[i] = getResult("Circ.", i-1);  //Circ. AR Round Solidity
+		Bassoon_AR[i] = getResult("AR", i-1);  
 		Bassoon_x[i] = getResult("X", i-1);
 		Bassoon_y[i] = getResult("Y", i-1);
 		if (getResult("Max", i-1) > 0) {Marker_overlap[i] = 1;} else {Marker_overlap[i] = 0;} 
@@ -177,7 +181,7 @@ function segment(inFile, outFile){
     run("Maximum...", "radius="+(maximal_distance_Munc/2));
 	run("Set Measurements...", "min redirect=Marker decimal=3");
 	// First get the masks for segmentation images
-	selectWindow("MuncCluster"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
+	selectWindow("MuncCluster"); run("Convert to Mask"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Bare Outlines] exclude clear include");
 	// exclude (clusters at the image border), clear (measurements), include (holes in the clusters)
 	selectWindow("MuncCluster"); run("Analyze Particles...", "size=min_area_Munc-Infinity show=[Count Masks] display exclude clear include");
     nR3 = nResults + 1;   
@@ -221,6 +225,8 @@ function segment(inFile, outFile){
 	for (i=0; i<nR1;i++) {
 		setResult("Bassoon_id", i, i);
 		setResult("Bassoon_area", i, Bassoon_area[i]);
+		setResult("Bassoon_circ", i, Bassoon_circ[i]);
+		setResult("Bassoon_AR", i, Bassoon_AR[i]);
 		setResult("Bassoon_amount", i, Bassoon_area[i] * Bassoon_mean[i]);
 		setResult("Bassoon_x", i, Bassoon_x[i]);
 		setResult("Bassoon_y", i, Bassoon_y[i]);
